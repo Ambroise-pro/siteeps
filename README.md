@@ -1,32 +1,32 @@
-# 🧭 Codex – Exemple de Fichier Markdown
+# 🧭 Gestion des courses EPS
 
-## 📋 Informations Générales
-**Nom du module : Gestion de courses
-**Version :** 1.0
-**Auteur :** Ambroise Le Pannérer  
-**Date de création :** 2025-10-14  
-**Dernière mise à jour :** 2025-10-14  
+Cette application web aide les enseignants d'EPS à préparer et observer des séances de demi-fond. Elle permet de définir la VMA d'un élève, de créer des courses avec pourcentage de VMA et de suivre un chrono avec indicateur "lièvre" pour savoir si l'élève est en avance ou en retard sur l'objectif.
 
----
+## 🚀 Démarrage
 
-## 🎯 Objectif
-Créer une application web qui permet d'oberver des courses de demi fond en cours d'EPS. 
-pour les eleves:
-- introduction de la VMA
-- nombre de courses, distances pour chacunes et % vma. 
+1. Ouvrez `index.html` dans votre navigateur.
+2. Renseignez le nom de l'élève (facultatif) et sa VMA en km/h.
+3. Ajoutez les courses en précisant la distance (en mètres) et le % de VMA.
+4. Sélectionnez une course pour lancer le suivi : démarrez, mettez en pause ou réinitialisez le chrono et passez à la course suivante.
 
-lors de la course: objectif a atteindre ( en fonction de la vma et %)/ chronometre / lievre permettant de saoir si il est en avance ou en retard). 
+Les données sont conservées localement dans le navigateur (LocalStorage).
 
-passer a la course suivante
+## 🧰 Pile technique
 
+- HTML, CSS et JavaScript natif
+- Stockage local dans le navigateur
 
-## 🧰 Dépendances
-- javascript
-- http
--css
----
+## ✅ Fonctionnalités principales
 
-TODO: 
--interface eleve creation des course et gestion
-- observation, chrono
-- lievre pour chaque course
+- Paramétrage de la VMA par élève
+- Calcul automatique des temps et allures cibles
+- Chronomètre avec indicateur d'écart (avance/retard)
+- Navigation entre les différentes courses programmées
+
+## 📦 Structure
+
+```
+index.html   # Structure principale de l'application
+styles.css   # Styles et mise en page
+app.js       # Logique de gestion des courses et du chrono
+```

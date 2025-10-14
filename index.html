@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestion de courses EPS</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Gestion des courses de demi-fond</h1>
+      <p class="subtitle">
+        Préparez, observez et analysez les séances d'endurance avec vos élèves.
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="card" aria-labelledby="setup-title">
+        <div class="card-header">
+          <h2 id="setup-title">Paramètres élèves</h2>
+          <p>Renseignez la VMA pour calculer automatiquement les allures.</p>
+        </div>
+        <form id="vma-form" class="form-grid">
+          <label for="student-name">Nom de l'élève</label>
+          <input
+            id="student-name"
+            name="student-name"
+            type="text"
+            placeholder="Ex: Salomé"
+            autocomplete="name"
+          />
+
+          <label for="vma">VMA (km/h)</label>
+          <input
+            id="vma"
+            name="vma"
+            type="number"
+            min="5"
+            max="30"
+            step="0.1"
+            required
+            placeholder="Ex: 14.5"
+          />
+          <button type="submit" class="primary">Définir la VMA</button>
+        </form>
+        <p id="current-vma" class="info-line" aria-live="polite"></p>
+      </section>
+
+      <section class="card" aria-labelledby="courses-title">
+        <div class="card-header">
+          <h2 id="courses-title">Création des courses</h2>
+          <p>
+            Ajoutez chaque course avec sa distance et le pourcentage de VMA
+            ciblé.
+          </p>
+        </div>
+        <form id="course-form" class="form-grid">
+          <label for="course-name">Nom ou n° de course</label>
+          <input
+            id="course-name"
+            name="course-name"
+            type="text"
+            placeholder="Course 1"
+            required
+          />
+
+          <label for="distance">Distance (m)</label>
+          <input
+            id="distance"
+            name="distance"
+            type="number"
+            min="100"
+            step="10"
+            required
+            placeholder="400"
+          />
+
+          <label for="percent">% VMA</label>
+          <input
+            id="percent"
+            name="percent"
+            type="number"
+            min="40"
+            max="120"
+            step="1"
+            required
+            placeholder="90"
+          />
+
+          <button type="submit" class="primary">Ajouter la course</button>
+        </form>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Course</th>
+                <th>Distance</th>
+                <th>% VMA</th>
+                <th>Allure cible</th>
+                <th>Temps cible</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="courses-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="observation-title">
+        <div class="card-header">
+          <h2 id="observation-title">Observation & chrono</h2>
+          <p>
+            Suivez le chrono en direct et indiquez à l'élève s'il est en avance
+            ou en retard sur l'allure cible.
+          </p>
+        </div>
+
+        <div id="observation-panel" class="observation" aria-live="polite">
+          <p class="empty" id="no-course">Ajoutez une course pour commencer.</p>
+
+          <div id="active-course" class="hidden">
+            <div class="course-meta">
+              <h3 id="active-name"></h3>
+              <p>
+                Distance : <span id="active-distance"></span> m · % VMA :
+                <span id="active-percent"></span>%
+              </p>
+            </div>
+
+            <div class="targets">
+              <p>
+                Allure cible : <strong id="active-pace"></strong> min/km · Temps
+                cible : <strong id="active-target"></strong>
+              </p>
+              <div class="pace-indicator" role="status">
+                <span class="label">Lièvre</span>
+                <span id="hare-status" class="badge">Prêt</span>
+              </div>
+            </div>
+
+            <div class="timer">
+              <div id="chronometer">00:00.0</div>
+              <p>
+                Écart : <span id="time-gap" class="gap gap-neutral">0.0 s</span>
+              </p>
+            </div>
+
+            <div class="actions">
+              <button id="start-btn" class="primary">Démarrer</button>
+              <button id="pause-btn" class="secondary" disabled>Pause</button>
+              <button id="reset-btn" class="ghost">Réinitialiser</button>
+              <button id="next-btn" class="ghost" disabled>Course suivante</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>
+        Créé pour faciliter le suivi des courses de demi-fond en EPS · Données
+        conservées localement dans le navigateur.
+      </p>
+    </footer>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
