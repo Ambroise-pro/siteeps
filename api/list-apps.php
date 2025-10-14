@@ -202,26 +202,52 @@ function findEntryPoint(string $directory): ?string
 
 function findIcon(string $directory): ?string
 {
-    $bases = ['logo', 'icon', 'thumbnail', 'cover'];
-    $extensions = '{png,jpg,jpeg,svg,webp,gif,avif}';
+    $preferredBases = ['logo', 'icon', 'thumbnail', 'cover'];
+    $allowedExtensions = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'gif', 'avif'];
+    $candidates = [];
 
-    foreach ($bases as $base) {
-        $candidates = [
-            "{$base}.{$extensions}",
-            "{$base}-*.{$extensions}",
-            "{$base}_*.{$extensions}",
-        ];
+    try {
+        $iterator = new DirectoryIterator($directory);
+    } catch (UnexpectedValueException $exception) {
+        return null;
+    }
 
-        foreach ($candidates as $candidate) {
-            $files = glob($directory . DIRECTORY_SEPARATOR . $candidate, GLOB_BRACE) ?: [];
-            if (!empty($files)) {
-                usort($files, static fn (string $a, string $b) => strcasecmp($a, $b));
-                return basename($files[0]);
+    foreach ($iterator as $fileinfo) {
+        if (!$fileinfo->isFile()) {
+            continue;
+        }
+
+        $extension = strtolower($fileinfo->getExtension());
+        if (!in_array($extension, $allowedExtensions, true)) {
+            continue;
+        }
+
+        $filename = $fileinfo->getFilename();
+        $basename = strtolower(pathinfo($filename, PATHINFO_FILENAME));
+
+        foreach ($preferredBases as $priority => $base) {
+            if (stripos($basename, $base) === 0) {
+                $candidates[] = [
+                    'priority' => $priority,
+                    'length' => strlen($filename),
+                    'name' => $filename,
+                ];
+                break;
             }
         }
     }
 
-    return null;
+    if (empty($candidates)) {
+        return null;
+    }
+
+    usort($candidates, static function (array $a, array $b): int {
+        return $a['priority'] <=> $b['priority']
+            ?: $a['length'] <=> $b['length']
+            ?: strcasecmp($a['name'], $b['name']);
+    });
+
+    return $candidates[0]['name'];
 }
 
 function encodeUrlPath(string $path): string
