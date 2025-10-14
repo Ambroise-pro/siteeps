@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPS Vauban</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: light;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f6f9;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            flex-grow: 1;
+            padding-bottom: 60px;
+        }
+
+        .apps-grid {
+            min-height: 200px;
+        }
+
+        .nav-button {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #ffffff;
+            border: 1px solid #e0e4e8;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: #2c3e50;
+            padding: 24px 18px 24px;
+            height: 100%;
+            text-align: center;
+        }
+
+        .nav-button:hover,
+        .nav-button:focus-visible {
+            transform: translateY(-6px);
+            box-shadow: 0 10px 18px rgba(0,0,0,0.15);
+            background-color: #f8f9fa;
+        }
+
+        .nav-button:focus-visible {
+            outline: 3px solid rgba(52, 152, 219, 0.35);
+            outline-offset: 4px;
+        }
+
+        .app-visual {
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 18px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: linear-gradient(135deg, #3498db, #2ecc71);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 34px;
+            text-transform: uppercase;
+        }
+
+        .app-visual img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .app-category {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.35rem 0.65rem;
+            border-radius: 999px;
+            background: rgba(44, 62, 80, 0.08);
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 16px;
+        }
+
+        .app-title {
+            display: block;
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 1.1rem;
+            margin-top: 18px;
+        }
+
+        .app-sport {
+            display: block;
+            color: #6c7a89;
+            margin-top: 6px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 32px;
+            font-weight: 800;
+        }
+
+        footer {
+            background-color: #2c3e50;
+            color: #ffffff;
+            padding: 18px 0;
+            margin-top: auto;
+        }
+
+        footer a {
+            color: #fff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        footer a:hover,
+        footer a:focus-visible {
+            color: #3498db;
+        }
+
+        #apps-status {
+            color: #6c7a89;
+        }
+
+        @media (max-width: 768px) {
+            .nav-button {
+                padding: 20px 16px 18px;
+            }
+
+            .app-visual {
+                width: 72px;
+                height: 72px;
+                border-radius: 16px;
+                font-size: 28px;
+            }
+
+            .app-title {
+                margin-top: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container text-center py-5">
+        <h1 class="display-5">EPS Vauban</h1>
+        <p class="lead text-muted mb-5">Toutes vos applications EPS en un coup d'œil. Ajoutez un dossier via FTP et il apparaîtra automatiquement ici.</p>
+
+        <div id="apps-status" class="mb-4" role="status">Chargement des applications…</div>
+
+        <div id="apps-grid" class="row g-4 justify-content-center apps-grid" aria-live="polite"></div>
+    </div>
+
+    <template id="app-card-template">
+        <div class="col-lg-3 col-md-4 col-sm-6 col-10">
+            <a class="nav-button" target="_self" rel="noopener">
+                <span class="app-category"></span>
+                <div class="app-visual" aria-hidden="true">
+                    <img class="app-logo" alt="">
+                </div>
+                <span class="app-title"></span>
+                <small class="app-sport"></small>
+            </a>
+        </div>
+    </template>
+
+    <footer class="text-center">
+        <p class="mb-0">&copy; 2024 A. Le Pannérer - <a href="/index.html">Accueil</a></p>
+    </footer>
+
+    <script>
+        const appsGrid = document.getElementById('apps-grid');
+        const statusEl = document.getElementById('apps-status');
+        const template = document.getElementById('app-card-template');
+
+        const colorPalette = [
+            ['#3498db', '#2ecc71'],
+            ['#9b59b6', '#3498db'],
+            ['#e67e22', '#f1c40f'],
+            ['#1abc9c', '#16a085'],
+            ['#e74c3c', '#e67e22'],
+            ['#34495e', '#2c3e50']
+        ];
+
+        const applyPlaceholder = (visualEl, title, index) => {
+            const colors = colorPalette[index % colorPalette.length];
+            visualEl.style.background = `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`;
+            visualEl.textContent = title ? title.charAt(0).toUpperCase() : '?';
+        };
+
+        const createCard = (app, index) => {
+            const fragment = template.content.cloneNode(true);
+            const link = fragment.querySelector('a');
+            const visual = fragment.querySelector('.app-visual');
+            const img = fragment.querySelector('.app-logo');
+            const titleEl = fragment.querySelector('.app-title');
+            const sportEl = fragment.querySelector('.app-sport');
+            const categoryEl = fragment.querySelector('.app-category');
+
+            link.href = app.url;
+            const accessibleLabel = app.description ? `${app.name} – ${app.description}` : (app.name || app.title || 'Application EPS');
+            link.setAttribute('aria-label', accessibleLabel);
+
+            const title = app.title || app.name || accessibleLabel;
+            titleEl.textContent = title;
+
+            if (app.sport) {
+                sportEl.textContent = app.sport;
+            } else if (app.description) {
+                sportEl.textContent = app.description;
+            } else {
+                sportEl.remove();
+            }
+
+            if (app.category) {
+                categoryEl.textContent = app.category;
+            } else {
+                categoryEl.remove();
+            }
+
+            if (app.logo) {
+                img.src = app.logo;
+                img.alt = '';
+                img.onload = () => {
+                    visual.textContent = '';
+                };
+                img.onerror = () => {
+                    img.remove();
+                    applyPlaceholder(visual, title, index);
+                };
+            } else {
+                img.remove();
+                applyPlaceholder(visual, title, index);
+            }
+
+            return fragment;
+        };
+
+        const renderApps = (apps) => {
+            appsGrid.innerHTML = '';
+
+            if (!apps.length) {
+                statusEl.textContent = "Aucune application trouvée pour le moment.";
+                statusEl.classList.remove('text-danger', 'text-muted');
+                statusEl.classList.add('text-muted');
+                return;
+            }
+
+            statusEl.textContent = '';
+            statusEl.classList.remove('text-danger', 'text-muted');
+
+            apps.forEach((app, index) => {
+                const card = createCard(app, index);
+                appsGrid.appendChild(card);
+            });
+        };
+
+        const showError = (message) => {
+            statusEl.textContent = message;
+            statusEl.classList.remove('text-muted');
+            statusEl.classList.add('text-danger');
+        };
+
+        const loadApps = async () => {
+            try {
+                const response = await fetch('api/list-apps.php', { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`Le serveur a répondu ${response.status}`);
+                }
+                const payload = await response.json();
+                if (!payload || !Array.isArray(payload.apps)) {
+                    throw new Error('Format de données inattendu.');
+                }
+
+                renderApps(payload.apps);
+            } catch (error) {
+                console.error('Erreur lors du chargement des applications:', error);
+                showError("Impossible de charger les applications. Veuillez réessayer plus tard.");
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', loadApps);
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
+</body>
+</html>
