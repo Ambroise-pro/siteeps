@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klassifizéier deng Klass</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent; /* Empêche le flash gris sur mobile au clic */
+        }
+        /* Masquer les écrans par défaut */
+        #setup-screen, #race-screen, #history-screen, #home-screen {
+            display: none;
+        }
+        
+        /* Styles pour le modal de défi */
+        .modal-hidden {
+            display: none;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-container {
+            background-color: #2d3748; /* gray-800 */
+            border-radius: 0.75rem; /* rounded-xl */
+            padding: 2rem;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s ease-in-out;
+        }
+        /* Styles pour l'animation d'apparition */
+        .modal-visible .modal-overlay {
+            opacity: 1;
+        }
+        .modal-visible .modal-container {
+            transform: scale(1);
+        }
+
+        /* Styles pour le modal de sélection du lièvre */
+        .hare-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 60; /* Au-dessus du modal de défi */
+        }
+        .hare-modal-container {
+            background-color: #1f2937; /* gray-900 */
+            border-radius: 0.75rem; /* rounded-xl */
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 500px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        /* Custom scrollbar pour le modal */
+        .modal-scroll-content {
+            overflow-y: auto;
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: #4a5568 #2d3748; /* gray-600 / gray-800 */
+        }
+        /* Webkit (Chrome, Safari) */
+        .modal-scroll-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .modal-scroll-content::-webkit-scrollbar-track {
+            background: #2d3748; /* gray-800 */
+            border-radius: 4px;
+        }
+        .modal-scroll-content::-webkit-scrollbar-thumb {
+            background-color: #4a5568; /* gray-600 */
+            border-radius: 4px;
+            border: 2px solid #2d3748; /* gray-800 */
+        }
+        .modal-scroll-content::-webkit-scrollbar-thumb:hover {
+            background-color: #718096; /* gray-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white h-full flex items-center justify-center p-4">
+
+    <!-- ÉCRAN DE CONNEXION -->
+    <main id="login-screen" class="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 text-center" style="display: none;">
+        <h1 class="text-3xl font-bold text-blue-300 mb-6">Connexion / Inscription</h1>
+        <form id="login-form">
+            <div class="space-y-4">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-300 text-left mb-1">Email</label>
+                    <input type="email" id="email" class="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-300 text-left mb-1">Mot de passe</label>
+                    <input type="password" id="password" class="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+            </div>
+            <p id="auth-error" class="text-red-400 text-sm mt-4 h-4"></p>
+            <div class="flex flex-col space-y-3 mt-6">
+                <button type="submit" id="login-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition duration-200">
+                    Se connecter
+                </button>
+                <button type="button" id="signup-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition duration-200">
+                    S'inscrire
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <!-- ÉCRAN DE CHARGEMENT -->
+    <main id="loading-screen" class="w-full max-w-2xl text-center">
+        <h1 class="text-3xl font-bold text-blue-300 mb-4">Klassifizéier deng Klass</h1>
+        <p class="text-lg text-gray-400" id="loading-message">Connexion à Firebase...</p>
+        <!-- Icône de chargement SVG -->
+        <svg class="animate-spin h-8 w-8 text-white mx-auto mt-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </main>
+
+    <!-- ÉCRAN D'ACCUEIL -->
+    <main id="home-screen" class="relative w-full max-w-2xl bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8 text-center">
+        <div class="absolute top-4 right-4">
+            <button id="logout-button" title="Déconnexion" class="text-gray-400 hover:text-white transition duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+            </button>
+        </div>
+        <h1 class="text-4xl font-bold text-blue-300 mb-8">Klassifizéier deng Klass</h1>
+        <p class="text-lg text-gray-300 mb-10">Bienvenue sur l'application de suivi de course.</p>
+        
+        <!-- NOUVELLE SECTION STATS GLOBALES -->
+        <section class="bg-gray-900 rounded-xl p-6 mb-10 shadow-inner">
+            <h2 class="text-xl font-semibold text-blue-300 mb-4">Statistiques Globales</h2>
+            <div class="flex justify-around text-center">
+                <div>
+                    <span id="global-km-display" class="text-4xl font-bold font-mono text-green-400">0</span>
+                    <p class="text-sm text-gray-400">km parcourus</p>
+                </div>
+                <div>
+                    <span id="global-races-display" class="text-4xl font-bold font-mono text-green-400">0</span>
+                    <p class="text-sm text-gray-400">courses réalisées</p>
+                </div>
+            </div>
+        </section>
+        
+        <div class="flex flex-col space-y-4">
+            <button id="goToLoginButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105" style="display: none;">
+                Se connecter pour courir
+            </button>
+            <button id="goToSetupButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105">
+                Faire une course
+            </button>
+            <button id="goToHistoryButton" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105">
+                Voir l'historique
+            </button>
+        </div>
+    </main>
+
+    <!-- ÉCRAN DE CONFIGURATION -->
+    <main id="setup-screen" class="w-full max-w-2xl bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-blue-300">Configuration</h1>
+            <button id="setupBackToHomeButton" class="text-gray-400 hover:text-white transition duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <form id="setup-form">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="establishment" class="block text-sm font-medium text-gray-300 mb-1">Établissement</label>
+                    <!-- MODIFICATION: Ajout de l'attribut 'list' -->
+                    <input type="text" id="establishment" list="luxembourg-schools" class="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="city" class="block text-sm font-medium text-gray-300 mb-1">Ville</label>
+                    <input type="text" id="city" list="luxembourg-cities" class="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="classLevel" class="block text-sm font-medium text-gray-300 mb-1">Niveau de classe</label>
+                    <select id="classLevel" class="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" required>
+                        <option value="" disabled selected>-- Choisir un niveau --</option>
+                        <option value="6ème / 7C/7G">6ème / 7C/7G</option>
+                        <option value="5ème / 6C/6G">5ème / 6C/6G</option>
+                        <option value="4ème / 5C/5G">4ème / 5C/5G</option>
+                        <option value="3ème / 4C/4G">3ème / 4C/4G</option>
+                        <option value="Seconde / 3C/3G">Seconde / 3C/3G</option>
+                        <option value="Première / 2C/2G">Première / 2C/2G</option>
+                        <option value="Terminale / 1C/1G">Terminale / 1C/1G</option>
+                        <option value="Autre">Autre</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="classNameInput" class="block text-sm font-medium text-gray-300 mb-1">Nom de la classe</label>
+                    <input type="text" id="classNameInput" class="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-300 mb-1">Choisir un lièvre</label>
+                <div class="flex items-center gap-2">
+                    <span id="selected-hare-display" class="flex-grow bg-gray-700 text-gray-400 italic p-2 rounded-lg border border-gray-600">Aucun lièvre sélectionné</span>
+                    <button type="button" id="openHareModalButton" class="flex-shrink-0 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-200">
+                        Choisir...
+                    </button>
+                </div>
+            </div>
+            <button type="submit" id="start-race-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition duration-200 transform hover:scale-105">
+                Démarrer la course
+            </button>
+        </form>
+    </main>
+    
+    <!-- NOUVEAU: Datalist pour les villes luxembourgeoises -->
+    <datalist id="luxembourg-cities">
+        <option value="Luxembourg">
+        <option value="Esch-sur-Alzette">
+        <option value="Differdange">
+        <option value="Dudelange">
+        <option value="Pétange">
+        <option value="Sanem">
+        <option value="Hesperange">
+        <option value_lue="Bettembourg">
+        <option value="Kayl">
+        <option value="Schifflange">
+        <option value="Mamer">
+        <option value="Strassen">
+        <option value="Mersch">
+        <option value="Ettelbruck">
+        <option value="Diekirch">
+        <option value="Wiltz">
+        <option value="Echternach">
+        <option value="Grevenmacher">
+        <option value="Remich">
+        <option value="Clervaux">
+        <option value="Vianden">
+    </datalist>
+
+    <!-- NOUVEAU: Datalist pour les établissements luxembourgeois -->
+    <datalist id="luxembourg-schools">
+        <option value="Athénée de Luxembourg">
+        <option value="Lycée de Garçons de Luxembourg (LGL)">
+        <option value="Lycée Robert-Schuman (LRSL)">
+        <option value="Lycée Michel-Rodange (LMRL)">
+        <option value="Lycée Aline Mayrisch (LAML)">
+        <option value="Lycée Josy Barthel Mamer (LJBM)">
+        <option value="Lycée de Garçons d'Esch-sur-Alzette (LGE)">
+        <option value="Lycée Hubert Clément (LHCE)">
+        <option value="Lycée classique de Diekirch (LCD)">
+        <option value="Lycée classique d'Echternach (LCE)">
+        <option value="Lycée du Nord (Wiltz)">
+        <option value="Lycée Technique des Arts et Métiers (LTAM)">
+        <option value="Lycée Technique de Bonnevoie (LTB)">
+        <option value="Lycée Technique d'Esch-sur-Alzette (LTE)">
+        <option value="Lycée Technique de Lallange (LTL)">
+        <option value="Lycée Technique du Centre (LTC)">
+        <option value="École de Commerce et de Gestion (ECG)">
+        <option value="Lycée Technique Hôtelier Alexis Heck (LTHAH)">
+        <option value="Sportlycée">
+        <option value="Lycée Ermesinde">
+        <option value="École nationale pour adultes (ENAD)">
+        <option value="Lycée Technique Agricole (LTA)">
+        <option value="Lycée Technique de Santé (LTPS)">
+        <option value="Lënster Lycée International School">
+        <option value="École internationale de Differdange (EIDD)">
+    </datalist>
+    
+    <!-- ÉCRAN HISTORIQUE -->
+    <main id="history-screen" class="w-full max-w-4xl bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-blue-300">Historique des Courses</h1>
+            <button id="historyBackToHomeButton" class="text-gray-400 hover:text-white transition duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Fil d'Ariane (Breadcrumbs) pour la navigation -->
+        <div id="history-breadcrumbs" class="text-sm text-gray-400 mb-4 overflow-x-auto whitespace-nowrap">
+            <!-- Sera rempli par JS -->
+        </div>
+
+        <!-- Conteneur pour les cartes ou les listes -->
+        <div id="history-content-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Sera rempli par JS -->
+        </div>
+    </main>
+
+    <!-- ÉCRAN DE COURSE -->
+    <main id="race-screen" class="w-full max-w-2xl bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+        <!-- En-tête -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-blue-300">Klassifizéier deng Klass</h1>
+            <div class="text-right">
+                <div class="text-sm text-gray-400">Temps Restant</div>
+                <div class="text-5xl font-bold font-mono tracking-tighter">
+                    <span id="minutes">00</span>:<span id="seconds">30</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section de progression -->
+        <div class="space-y-6 mb-6">
+            <!-- Progression Utilisateur -->
+            <div class="w-full">
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-lg font-semibold text-white">Votre Classe</span>
+                    <div class="text-right">
+                        <span id="relais-count" class="text-3xl font-bold text-green-400">0</span>
+                        <span class="text-sm text-gray-400">relais</span>
+                    </div>
+                </div>
+                <div class="relative w-full h-8 bg-gray-700 rounded-full overflow-hidden shadow-inner">
+                    <div id="user-progress" class="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all duration-500 ease-out" style="width: 1%;">
+                        <!-- Icône utilisateur -->
+                        <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 p-1 bg-white rounded-full shadow-lg">
+                            <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progression Lièvre -->
+            <div id="hare-progress-section" class="w-full">
+                <div class="flex justify-between items-end mb-1">
+                    <span id="hare-name-display" class="text-lg font-semibold text-white">Lièvre</span>
+                    <div class="text-right">
+                        <span id="hare-distance" class="text-3xl font-bold text-red-400">0</span>
+                        <span class="text-sm text-gray-400">m</span>
+                    </div>
+                </div>
+                <div class="relative w-full h-8 bg-gray-700 rounded-full overflow-hidden shadow-inner">
+                    <div id="hare-progress" class="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-500 ease-out" style="width: 1%;">
+                        <!-- Icône lièvre -->
+                        <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 p-1 bg-white rounded-full shadow-lg">
+                            <svg class="w-6 h-6 text-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M11.226 11.225A6.002 6.002 0 1 0 12 2a6 6 0 0 0-.774 9.225ZM12 13a8.002 8.002 0 0 1-7.018-4.523A9.94 9.94 0 0 0 2 22a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1 9.94 9.94 0 0 0-2.982-13.523A8.002 8.002 0 0 1 12 13Z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons de contrôle -->
+        <section class="grid grid-cols-3 gap-3">
+            <button id="startButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Démarrer
+            </button>
+            <button id="stopButton" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Arrêter
+            </button>
+            <button id="resetButton" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                Réinitialiser
+            </button>
+        </section>
+        
+        <!-- Bouton Relais (prend toute la largeur) -->
+        <button id="relaisButton" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-8 px-6 rounded-lg shadow-lg transition duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed mt-4 text-3xl">
+            RELAIS (+40m)
+        </button>
+
+    </main>
+
+    <!-- NOUVEAU: MODAL CHOIX LIÈVRE -->
+    <div id="hare-modal" class="modal-hidden">
+        <div class="hare-modal-overlay">
+            <div class="hare-modal-container">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-blue-300">Choisir un Lièvre</h2>
+                    <button id="closeHareModalButton" class="text-gray-400 hover:text-white transition duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Fil d'Ariane (Breadcrumbs) pour la navigation du modal -->
+                <div id="hare-nav-breadcrumbs" class="text-sm text-gray-400 mb-4 overflow-x-auto whitespace-nowrap">
+                    <!-- Rempli par JS -->
+                </div>
+        
+                <!-- Conteneur pour les cartes ou les listes -->
+                <div id="hare-nav-content" class="modal-scroll-content flex-grow grid grid-cols-1 sm:grid-cols-2 gap-3 pr-2">
+                    <!-- Rempli par JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL POUR RÉSULTAT DU DÉFI -->
+    <div id="challenge-modal" class="modal-hidden">
+        <div class="modal-overlay" id="challenge-modal-overlay">
+            <div class="modal-container">
+                <!-- Icône Succès (cachée par défaut) -->
+                <svg id="challenge-icon-success" class="h-20 w-20 text-green-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <!-- Icône Échec (cachée par défaut) -->
+                <svg id="challenge-icon-fail" class="h-20 w-20 text-red-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                
+                <h2 id="challenge-modal-title" class="text-3xl font-bold text-white mb-4">Défi Réussi!</h2>
+                <p id="challenge-modal-message" class="text-lg text-gray-300 mb-6">Vous avez battu le lièvre !</p>
+                <button id="challenge-modal-close" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition duration-200">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ======================= -->
+    <!-- SCRIPT JAVASCRIPT       -->
+    <!-- ======================= -->
+    <script type="module">
+        // === 1. IMPORTS FIREBASE ===
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, getDocs, collection, setDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // === 2. CONFIGURATION FIREBASE ===
+        const firebaseConfig = {
+            apiKey: "AIzaSyAsFDLLqY90FFucFe_GrkgBU2qiVs8FcWw",
+            authDomain: "classetaclasse-618c0.firebaseapp.com",
+            projectId: "classetacmsetaclasse-618c0",
+            storageBucket: "classetaclasse-618c0.firebasestorage.app",
+            messagingSenderId: "908712976639",
+            appId: "1:908712976639:web:02922abab53387f5afacca",
+            measurementId: "G-VMW13H6WS5"
+        };
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id-classetaclasse';
+
+        let app, auth, db;
+        let userId = null;
+        let isAuthReady = false;
+
+        // === 3. CONSTANTES ET VARIABLES GLOBALES ===
+        
+        // Éléments du DOM - Écrans
+        const loginScreen = document.getElementById('login-screen');
+        const loadingScreen = document.getElementById('loading-screen');
+        const loadingMessage = document.getElementById('loading-message');
+        const homeScreen = document.getElementById('home-screen');
+        const setupScreen = document.getElementById('setup-screen');
+        const raceScreen = document.getElementById('race-screen');
+        const historyScreen = document.getElementById('history-screen');
+
+        // Éléments du DOM - Authentification
+        const loginForm = document.getElementById('login-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginButton = document.getElementById('login-button');
+        const signupButton = document.getElementById('signup-button');
+        const authError = document.getElementById('auth-error');
+        const logoutButton = document.getElementById('logout-button');
+        
+        // Éléments du DOM - Accueil
+        const goToLoginButton = document.getElementById('goToLoginButton');
+        const goToSetupButton = document.getElementById('goToSetupButton');
+        const goToHistoryButton = document.getElementById('goToHistoryButton');
+        const globalKmDisplay = document.getElementById('global-km-display');
+        const globalRacesDisplay = document.getElementById('global-races-display');
+        
+        // Éléments du DOM - Historique
+        const historyBackToHomeButton = document.getElementById('historyBackToHomeButton');
+        const historyContentGrid = document.getElementById('history-content-grid');
+        const historyBreadcrumbs = document.getElementById('history-breadcrumbs');
+
+        // Éléments du DOM - Configuration
+        const setupForm = document.getElementById('setup-form');
+        const setupBackToHomeButton = document.getElementById('setupBackToHomeButton');
+        const establishmentInput = document.getElementById('establishment');
+        const cityInput = document.getElementById('city');
+        const classLevelSelect = document.getElementById('classLevel');
+        const classNameInput = document.getElementById('classNameInput');
+        const startRaceButton = document.getElementById('start-race-button');
+        const selectedHareDisplay = document.getElementById('selected-hare-display');
+        const openHareModalButton = document.getElementById('openHareModalButton');
+
+        // Éléments du DOM - Course
+        const minutesDisplay = document.getElementById('minutes');
+        const secondsDisplay = document.getElementById('seconds');
+        const relaisCountDisplay = document.getElementById('relais-count');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const resetButton = document.getElementById('resetButton');
+        const relaisButton = document.getElementById('relaisButton');
+        const userProgress = document.getElementById('user-progress');
+        const hareNameDisplay = document.getElementById('hare-name-display');
+        const hareProgress = document.getElementById('hare-progress');
+        const hareDistanceDisplay = document.getElementById('hare-distance');
+        
+        // Éléments DOM du Modal Défi
+        const challengeModal = document.getElementById('challenge-modal');
+        const challengeModalOverlay = document.getElementById('challenge-modal-overlay');
+        const challengeModalTitle = document.getElementById('challenge-modal-title');
+        const challengeModalMessage = document.getElementById('challenge-modal-message');
+        const challengeModalClose = document.getElementById('challenge-modal-close');
+        const challengeIconSuccess = document.getElementById('challenge-icon-success');
+        const challengeIconFail = document.getElementById('challenge-icon-fail');
+
+        // Éléments DOM du Modal Lièvre
+        const hareModal = document.getElementById('hare-modal');
+        const closeHareModalButton = document.getElementById('closeHareModalButton');
+        const hareNavBreadcrumbs = document.getElementById('hare-nav-breadcrumbs');
+        const hareNavContent = document.getElementById('hare-nav-content');
+
+        // Variables du timer et de la course
+        let timer;
+        let timeElapsed = 0;
+        const MAX_TIME = 30;
+        const RELAIS_DISTANCE = 40;
+        let userRelaisCount = 0;
+        let userDistance = 0;
+        let maxUserDistance = 0;
+        
+        let userPerformanceHistory = []; 
+        let selectedHarePace = new Array(MAX_TIME + 1).fill(0);
+        let selectedHareInfo = null;
+        let maxHareDistance = 0;
+
+        // Variables de gestion d'état
+        let appState = 'loading'; // loading, login, home, setup, race, history
+        let userInfo = {
+            establishment: '',
+            city: '',
+            classLevel: '',
+            className: ''
+        };
+        
+        let availableRaces = [];
+        let raceDataHierarchy = {};
+        
+        let historyNavState = {
+            level: 'cities',
+            city: null,
+            establishment: null,
+            classLevel: null,
+            className: null
+        };
+        let hareNavState = {
+            level: 'cities',
+            city: null,
+            establishment: null,
+            classLevel: null,
+            className: null
+        };
+
+
+        // === 4. FONCTIONS DE L'APPLICATION ===
+
+        // --- 4.1 Initialisation et Authentification ---
+
+        async function initializeAppAndAuth() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                setLogLevel('error');
+                
+                onAuthStateChanged(auth, handleAuthStateChange);
+
+            } catch (error) {
+                console.error("Erreur d'initialisation Firebase:", error);
+                loadingMessage.textContent = "Erreur d'initialisation de Firebase.";
+                loadingMessage.classList.add('text-red-500');
+            }
+        }
+
+        async function handleAuthStateChange(user) {
+            if (!user) {
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    console.error("Anonymous sign-in failed", error);
+                    loadingMessage.textContent = "Échec de la connexion anonyme.";
+                    loadingMessage.classList.add('text-red-500');
+                }
+                return;
+            }
+
+            userId = user.uid;
+            isAuthReady = true;
+            
+            await loadRacesFromFirestore();
+            
+            if (appState === 'loading' || appState === 'login') {
+                changeScreen('home');
+            }
+
+            if (user.isAnonymous) {
+                console.log("Using anonymous user:", userId);
+                setupUIForAnonymous();
+            } else {
+                console.log("Using authenticated user:", userId);
+                setupUIForAuthenticated();
+            }
+        }
+
+        function setupUIForAuthenticated() {
+            goToSetupButton.style.display = 'block';
+            logoutButton.style.display = 'block';
+            goToLoginButton.style.display = 'none';
+        }
+
+        function setupUIForAnonymous() {
+            goToSetupButton.style.display = 'none';
+            logoutButton.style.display = 'none';
+            goToLoginButton.style.display = 'block';
+        }
+
+        // --- 4.2 Gestion des Écrans (Navigation) ---
+
+        function changeScreen(newScreen) {
+            // Masquer tous les écrans
+            loginScreen.style.display = 'none';
+            loadingScreen.style.display = 'none';
+            homeScreen.style.display = 'none';
+            setupScreen.style.display = 'none';
+            raceScreen.style.display = 'none';
+            historyScreen.style.display = 'none';
+
+            appState = newScreen;
+
+            // Afficher l'écran demandé
+            switch (newScreen) {
+                case 'loading':
+                    loadingScreen.style.display = 'block';
+                    break;
+                case 'login':
+                    loginScreen.style.display = 'block';
+                    break;
+                case 'home':
+                    homeScreen.style.display = 'block';
+                    updateGlobalStats();
+                    break;
+                case 'setup':
+                    setupScreen.style.display = 'block';
+                    loadUserInfoToForm();
+                    break;
+                case 'race':
+                    raceScreen.style.display = 'block';
+                    startRaceSetup();
+                    break;
+                case 'history':
+                    historyScreen.style.display = 'block';
+                    resetHistoryNav();
+                    renderHistoryView();
+                    break;
+            }
+        }
+
+        // --- Fonctions d'authentification ---
+        async function handleSignUp(e) {
+            e.preventDefault();
+            authError.textContent = '';
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                console.error("Erreur d'inscription:", error);
+                authError.textContent = getAuthErrorMessage(error);
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            authError.textContent = '';
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                console.error("Erreur de connexion:", error);
+                authError.textContent = getAuthErrorMessage(error);
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Erreur de déconnexion:", error);
+            }
+        }
+
+        function getAuthErrorMessage(error) {
+            switch (error.code) {
+                case 'auth/invalid-email':
+                    return 'Adresse email invalide.';
+                case 'auth/user-not-found':
+                    return 'Aucun compte trouvé avec cet email.';
+                case 'auth/wrong-password':
+                    return 'Mot de passe incorrect.';
+                case 'auth/weak-password':
+                    return 'Le mot de passe doit faire au moins 6 caractères.';
+                case 'auth/email-already-in-use':
+                    return 'Cet email est déjà utilisé.';
+                default:
+                    return 'Une erreur est survenue.';
+            }
+        }
+
+        // --- 4.3 Gestion des Données (Firestore) ---
+
+        async function loadRacesFromFirestore() {
+            if (!db || !isAuthReady) return;
+
+            try {
+                const collectionPath = `artifacts/${appId}/public/data/races`;
+                const q = query(collection(db, collectionPath), orderBy("timestamp", "desc"));
+                const querySnapshot = await getDocs(q);
+                
+                availableRaces = [];
+                querySnapshot.forEach((doc) => {
+                    availableRaces.push({ id: doc.id, ...doc.data() });
+                });
+                
+                console.log("Courses chargées:", availableRaces.length);
+
+                processRaces();
+                updateGlobalStats();
+
+                if (appState === 'history') {
+                    renderHistoryView();
+                }
+                if (hareModal.classList.contains('modal-visible')) {
+                    renderHareNavView();
+                }
+
+            } catch (error) {
+                console.error("Erreur lors du chargement des courses:", error);
+                if (error.code === 'permission-denied') {
+                    alert("Erreur de permission. Vérifiez vos règles de sécurité Firestore.");
+                }
+            }
+        }
+
+        function processRaces() {
+            raceDataHierarchy = {};
+            availableRaces.forEach(race => {
+                const city = race.city || 'Ville inconnue';
+                const establishment = race.establishment || 'Établissement inconnu';
+                const classLevel = race.classLevel || 'Niveau inconnu';
+                const className = race.className || 'Classe inconnue';
+
+                if (!raceDataHierarchy[city]) raceDataHierarchy[city] = {};
+                if (!raceDataHierarchy[city][establishment]) raceDataHierarchy[city][establishment] = {};
+                if (!raceDataHierarchy[city][establishment][classLevel]) raceDataHierarchy[city][establishment][classLevel] = {};
+                if (!raceDataHierarchy[city][establishment][classLevel][className]) raceDataHierarchy[city][establishment][classLevel][className] = [];
+                
+                raceDataHierarchy[city][establishment][classLevel][className].push(race);
+            });
+        }
+
+        async function saveRaceToFirestore() {
+            if (!db || !userId || auth.currentUser.isAnonymous) {
+                console.error("Utilisateur non authentifié ou anonyme. Sauvegarde annulée.");
+                alert("Vous devez être connecté pour sauvegarder une course.");
+                return;
+            }
+
+            if (userPerformanceHistory.length === 0) {
+                 console.error("Aucune donnée de performance. Sauvegarde annulée.");
+                 return;
+            }
+
+            try {
+                const collectionPath = `artifacts/${appId}/public/data/races`;
+                const finalDistance = userPerformanceHistory.length > 0 ? userPerformanceHistory[userPerformanceHistory.length - 1] : 0;
+
+                const raceDoc = {
+                    ...userInfo,
+                    userId: userId,
+                    timestamp: serverTimestamp(),
+                    duration: timeElapsed,
+                    finalDistance: finalDistance,
+                    relaisCount: userRelaisCount,
+                    performance: userPerformanceHistory
+                };
+
+                const docRef = await addDoc(collection(db, collectionPath), raceDoc);
+                console.log("Course sauvegardée avec l'ID:", docRef.id);
+                
+                availableRaces.unshift({ id: docRef.id, ...raceDoc, timestamp: new Date() });
+                processRaces();
+                updateGlobalStats();
+
+            } catch (error) {
+                console.error("Erreur lors de la sauvegarde de la course:", error);
+                if (error.code === 'permission-denied') {
+                    alert("ERREUR: Impossible de sauvegarder la course. Vos règles de sécurité Firestore n'autorisent pas l'écriture. Veuillez contacter l'administrateur.");
+                }
+            }
+        }
+
+        // --- 4.4 Écran de Configuration (Setup) ---
+
+        function handleSetupSubmit(e) {
+            e.preventDefault();
+
+            userInfo.establishment = establishmentInput.value.trim() || '';
+            userInfo.city = cityInput.value.trim() || '';
+            userInfo.classLevel = classLevelSelect.value || '';
+            userInfo.className = classNameInput.value.trim() || '';
+
+            if (selectedHareInfo) {
+                selectedHarePace = selectedHareInfo.performance || new Array(MAX_TIME + 1).fill(0);
+                
+                if (selectedHarePace.length <= MAX_TIME) {
+                    const lastDistance = selectedHarePace.length > 0 ? selectedHarePace[selectedHarePace.length - 1] : 0;
+                    selectedHarePace = selectedHarePace.concat(new Array(MAX_TIME + 1 - selectedHarePace.length).fill(lastDistance));
+                } else {
+                    selectedHarePace = selectedHarePace.slice(0, MAX_TIME + 1);
+                }
+
+                maxHareDistance = selectedHarePace[selectedHarePace.length - 1] || 1;
+                hareNameDisplay.textContent = `Lièvre: ${selectedHareInfo.className || 'Inconnu'}`;
+            } else {
+                selectedHarePace = new Array(MAX_TIME + 1).fill(0);
+                maxHareDistance = 0;
+                hareNameDisplay.textContent = 'Lièvre';
+            }
+
+            changeScreen('race');
+        }
+        
+        function loadUserInfoToForm() {
+            establishmentInput.value = userInfo.establishment || '';
+            cityInput.value = userInfo.city || '';
+            classLevelSelect.value = userInfo.classLevel || '';
+            classNameInput.value = userInfo.className || '';
+        }
+
+        // --- 4.5 Écran de Course (Race) ---
+
+        function startRaceSetup() {
+            resetTimer();
+            
+            const hareProgressSection = document.getElementById('hare-progress-section');
+            if (selectedHareInfo) {
+                hareProgressSection.style.display = 'block';
+            } else {
+                hareProgressSection.style.display = 'none';
+            }
+
+            startButton.disabled = false;
+            relaisButton.disabled = false;
+            stopButton.disabled = true;
+            resetButton.disabled = true;
+            
+            startTimer();
+        }
+
+        function updateTimerDisplay() {
+            const remainingTime = MAX_TIME - timeElapsed;
+            const minutes = Math.floor(remainingTime / 60);
+            const seconds = remainingTime % 60;
+
+            if (minutesDisplay) minutesDisplay.textContent = String(minutes).padStart(2, '0');
+            if (secondsDisplay) secondsDisplay.textContent = String(seconds).padStart(2, '0');
+        }
+
+        function updateUserDisplay() {
+            if (relaisCountDisplay) relaisCountDisplay.textContent = userRelaisCount;
+            userDistance = userRelaisCount * RELAIS_DISTANCE;
+
+            maxUserDistance = Math.max(maxUserDistance, userDistance, maxHareDistance);
+            const safeMaxDistance = maxUserDistance || 1;
+            
+            const userProgressPercentage = (userDistance / safeMaxDistance) * 100;
+            if (userProgress) userProgress.style.left = `${Math.min(userProgressPercentage, 100)}%`;
+        }
+
+        function updateHareDisplay() {
+            const currentHareDistance = selectedHarePace[timeElapsed] || 0;
+            if (hareDistanceDisplay) hareDistanceDisplay.textContent = currentHareDistance;
+            
+            maxUserDistance = Math.max(maxUserDistance, userDistance, currentHareDistance, maxHareDistance);
+            const safeMaxDistance = maxUserDistance || 1;
+            
+            const hareProgressPercentage = (currentHareDistance / safeMaxDistance) * 100;
+            if (hareProgress) hareProgress.style.left = `${Math.min(hareProgressPercentage, 100)}%`;
+            
+            updateUserDisplay();
+        }
+
+        function startTimer() {
+            if (timer) return;
+
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            resetButton.disabled = true;
+            relaisButton.disabled = false;
+
+            timeElapsed = 0;
+            userRelaisCount = 0;
+            userDistance = 0;
+            maxUserDistance = maxHareDistance;
+            userPerformanceHistory = new Array(MAX_TIME + 1).fill(0);
+
+            updateTimerDisplay();
+            updateUserDisplay();
+            updateHareDisplay();
+
+            timer = setInterval(() => {
+                timeElapsed++;
+                
+                userPerformanceHistory[timeElapsed] = userDistance;
+
+                updateTimerDisplay();
+                updateHareDisplay();
+                updateUserDisplay();
+
+                if (timeElapsed >= MAX_TIME) {
+                    stopTimer(true);
+                }
+            }, 1000);
+        }
+
+        async function stopTimer(autoStopped = false) {
+            clearInterval(timer);
+            timer = null;
+
+            startButton.disabled = true;
+            stopButton.disabled = true;
+            resetButton.disabled = false;
+            relaisButton.disabled = true;
+
+            while (userPerformanceHistory.length <= MAX_TIME) {
+                userPerformanceHistory.push(userDistance);
+            }
+            userPerformanceHistory = userPerformanceHistory.slice(0, MAX_TIME + 1);
+            
+            await saveRaceToFirestore();
+            
+            if (selectedHareInfo) {
+                const finalHareDistance = selectedHarePace[timeElapsed] || 0;
+                if (userDistance > finalHareDistance) {
+                    showChallengeModal(true, userDistance, finalHareDistance);
+                } else {
+                    showChallengeModal(false, userDistance, finalHareDistance);
+                }
+            } else {
+                hideChallengeModal();
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            timer = null;
+            timeElapsed = 0;
+            userRelaisCount = 0;
+            userDistance = 0;
+            userPerformanceHistory = [];
+
+            updateTimerDisplay();
+            relaisCountDisplay.textContent = '0';
+            userProgress.style.left = '0%';
+            hareProgress.style.left = '0%';
+            hareDistanceDisplay.textContent = '0';
+            
+            hareNameDisplay.textContent = 'Lièvre';
+            selectedHareInfo = null;
+            selectedHarePace = new Array(MAX_TIME + 1).fill(0);
+            maxHareDistance = 0;
+            selectedHareDisplay.textContent = 'Aucun lièvre sélectionné';
+            selectedHareDisplay.classList.add('italic', 'text-gray-400');
+
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            resetButton.disabled = true;
+            relaisButton.disabled = true;
+        }
+
+        function handleRelaisClick() {
+            if (timer) {
+                userRelaisCount++;
+                updateUserDisplay();
+            }
+        }
+
+        // --- 4.6 Navigation dans l'Historique ---
+
+        function resetHistoryNav() {
+            historyNavState = {
+                level: 'cities', city: null, establishment: null, classLevel: null, className: null
+            };
+        }
+
+        function renderHistoryView() {
+            updateHistoryNav();
+            historyContentGrid.innerHTML = '';
+
+            const { level, city, establishment, classLevel } = historyNavState;
+
+            try {
+                if (level === 'cities') {
+                    renderCitiesView(raceDataHierarchy);
+                } else if (level === 'establishments' && city) {
+                    renderEstablishmentsView(raceDataHierarchy[city]);
+                } else if (level === 'classLevels' && city && establishment) {
+                    renderClassLevelsView(raceDataHierarchy[city][establishment]);
+                } else if (level === 'classNames' && city && establishment && classLevel) {
+                    renderClassNamesView(raceDataHierarchy[city][establishment][classLevel]);
+                } else if (level === 'races' && city && establishment && classLevel && historyNavState.className) {
+                    renderRacesView(raceDataHierarchy[city][establishment][classLevel][historyNavState.className]);
+                } else {
+                    historyContentGrid.innerHTML = '<p class="text-gray-400 col-span-full">Données non trouvées.</p>';
+                }
+            } catch (error) {
+                 console.error("Erreur de rendu d'historique:", error, historyNavState);
+                 historyContentGrid.innerHTML = '<p class="text-red-400 col-span-full">Erreur lors de l\'affichage des données.</p>';
+                 resetHistoryNav();
+            }
+        }
+
+        function updateHistoryNav() {
+            historyBreadcrumbs.innerHTML = '';
+            
+            const cityLink = createNavLink('Villes', 'cities');
+            historyBreadcrumbs.appendChild(cityLink);
+
+            if (historyNavState.city) {
+                historyBreadcrumbs.appendChild(createNavSeparator());
+                const estabLink = createNavLink(historyNavState.city, 'establishments');
+                historyBreadcrumbs.appendChild(estabLink);
+            }
+            if (historyNavState.establishment) {
+                historyBreadcrumbs.appendChild(createNavSeparator());
+                const levelLink = createNavLink(historyNavState.establishment, 'classLevels');
+                historyBreadcrumbs.appendChild(levelLink);
+            }
+            if (historyNavState.classLevel) {
+                historyBreadcrumbs.appendChild(createNavSeparator());
+                const nameLink = createNavLink(historyNavState.classLevel, 'classNames');
+                historyBreadcrumbs.appendChild(nameLink);
+            }
+            if (historyNavState.className) {
+                historyBreadcrumbs.appendChild(createNavSeparator());
+                const raceLink = createNavLink(historyNavState.className, 'races');
+                historyBreadcrumbs.appendChild(raceLink);
+            }
+        }
+        
+        function renderCitiesView(data) {
+            const cities = Object.keys(data).sort();
+            if (cities.length === 0) {
+                 historyContentGrid.innerHTML = '<p class="text-gray-400 col-span-full">Aucune course enregistrée pour le moment.</p>';
+                 return;
+            }
+            cities.forEach(city => {
+                const count = Object.keys(data[city]).length;
+                const card = createNavCard(city, `${count} établissement(s)`, 'city', city);
+                historyContentGrid.appendChild(card);
+            });
+        }
+        
+        function renderEstablishmentsView(data) {
+            const establishments = Object.keys(data).sort();
+            establishments.forEach(est => {
+                const count = Object.keys(data[est]).length;
+                const card = createNavCard(est, `${count} niveau(x)`, 'establishment', est);
+                historyContentGrid.appendChild(card);
+            });
+        }
+
+        function renderClassLevelsView(data) {
+            const levels = Object.keys(data).sort();
+            levels.forEach(level => {
+                const count = Object.keys(data[level]).length;
+                const card = createNavCard(level, `${count} classe(s)`, 'classLevel', level);
+                historyContentGrid.appendChild(card);
+            });
+        }
+        
+        function renderClassNamesView(data) {
+            const classNames = Object.keys(data).sort();
+            classNames.forEach(name => {
+                const count = data[name].length;
+                const card = createNavCard(name, `${count} course(s)`, 'className', name);
+                historyContentGrid.appendChild(card);
+            });
+        }
+        
+        function renderRacesView(races) {
+            historyContentGrid.className = 'flex flex-col space-y-3';
+            
+            races.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+            
+            races.forEach(race => {
+                const date = race.timestamp ? race.timestamp.toDate().toLocaleString('fr-FR') : 'Date inconnue';
+                const distance = race.finalDistance || (race.performance ? race.performance[race.performance.length - 1] : 0);
+                
+                const item = document.createElement('div');
+                item.className = 'w-full bg-gray-700 rounded-lg p-4 flex justify-between items-center shadow';
+                item.innerHTML = `
+                    <div>
+                        <p class="text-lg font-semibold text-white">${date}</p>
+                        <p class="text-sm text-gray-400">ID: ${race.id.substring(0, 6)}...</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-green-400">${distance} m</p>
+                        <p class="text-sm text-gray-400">${race.relaisCount || 0} relais</p>
+                    </div>
+                `;
+                historyContentGrid.appendChild(item);
+            });
+        }
+        
+        function createNavCard(title, subtitle, level, value) {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-700 rounded-lg p-4 shadow hover:bg-gray-600 transition duration-200 cursor-pointer flex flex-col justify-between';
+            card.innerHTML = `
+                <h3 class="text-xl font-semibold text-white mb-2 truncate">${title}</h3>
+                <p class="text-sm text-gray-400">${subtitle}</p>
+            `;
+            card.addEventListener('click', () => {
+                historyNavState.level = getNextHistoryLevel(level);
+                historyNavState[level] = value;
+                renderHistoryView();
+            });
+            return card;
+        }
+
+        function createNavLink(text, level) {
+            const link = document.createElement('span');
+            link.textContent = text;
+            link.className = 'cursor-pointer hover:text-blue-300';
+            link.addEventListener('click', () => {
+                if (level === 'cities') resetHistoryNav();
+                if (level === 'establishments') {
+                    historyNavState.establishment = null;
+                    historyNavState.classLevel = null;
+                    historyNavState.className = null;
+                }
+                if (level === 'classLevels') {
+                    historyNavState.classLevel = null;
+                    historyNavState.className = null;
+                }
+                if (level === 'classNames') {
+                    historyNavState.className = null;
+                }
+                historyNavState.level = level;
+                renderHistoryView();
+            });
+            return link;
+        }
+        function createNavSeparator() {
+            const sep = document.createElement('span');
+            sep.textContent = ' / ';
+            sep.className = 'mx-1';
+            return sep;
+        }
+
+        function getNextHistoryLevel(level) {
+            const levels = ['cities', 'establishments', 'classLevels', 'classNames', 'races'];
+            const index = levels.indexOf(level);
+            return levels[index + 1] || 'races';
+        }
+
+        // --- 4.7 Navigation du Modal Lièvre ---
+        
+        function openHareModal() {
+            resetHareNav();
+            renderHareNavView();
+            hareModal.classList.remove('modal-hidden');
+            hareModal.classList.add('modal-visible');
+        }
+
+        function closeHareModal() {
+            hareModal.classList.add('modal-hidden');
+            hareModal.classList.remove('modal-visible');
+        }
+        
+        function resetHareNav() {
+             hareNavState = {
+                level: 'cities', city: null, establishment: null, classLevel: null, className: null
+            };
+        }
+
+        function renderHareNavView() {
+            updateHareNavBreadcrumbs();
+            hareNavContent.innerHTML = '';
+
+            const { level, city, establishment, classLevel } = hareNavState;
+            let data = raceDataHierarchy;
+
+            try {
+                if (level === 'cities') {
+                    const cities = Object.keys(data).sort();
+                    cities.forEach(c => hareNavContent.appendChild(createHareNavCard(c, 'city', c)));
+                } else {
+                    data = data[city];
+                    if (level === 'establishments') {
+                        const establishments = Object.keys(data).sort();
+                        establishments.forEach(e => hareNavContent.appendChild(createHareNavCard(e, 'establishment', e)));
+                    } else {
+                        data = data[establishment];
+                        if (level === 'classLevels') {
+                            const levels = Object.keys(data).sort();
+                            levels.forEach(l => hareNavContent.appendChild(createHareNavCard(l, 'classLevel', l)));
+                        } else {
+                            data = data[classLevel];
+                            if (level === 'classNames') {
+                                const names = Object.keys(data).sort();
+                                names.forEach(n => hareNavContent.appendChild(createHareNavCard(n, 'className', n)));
+                            } else {
+                                data = data[hareNavState.className];
+                                data.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+                                data.forEach(race => hareNavContent.appendChild(createHareRaceCard(race)));
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Erreur de rendu (lièvre):", error, hareNavState);
+                hareNavContent.innerHTML = '<p class="text-red-400 col-span-full">Erreur d\'affichage.</p>';
+                resetHareNav();
+            }
+        }
+
+        function updateHareNavBreadcrumbs() {
+            hareNavBreadcrumbs.innerHTML = '';
+            
+            const cityLink = createHareNavLink('Villes', 'cities');
+            hareNavBreadcrumbs.appendChild(cityLink);
+
+            if (hareNavState.city) {
+                hareNavBreadcrumbs.appendChild(createNavSeparator());
+                hareNavBreadcrumbs.appendChild(createHareNavLink(hareNavState.city, 'establishments'));
+            }
+            if (hareNavState.establishment) {
+                hareNavBreadcrumbs.appendChild(createNavSeparator());
+                hareNavBreadcrumbs.appendChild(createHareNavLink(hareNavState.establishment, 'classLevels'));
+            }
+            if (hareNavState.classLevel) {
+                hareNavBreadcrumbs.appendChild(createNavSeparator());
+                hareNavBreadcrumbs.appendChild(createHareNavLink(hareNavState.classLevel, 'classNames'));
+            }
+            if (hareNavState.className) {
+                hareNavBreadcrumbs.appendChild(createNavSeparator());
+                hareNavBreadcrumbs.appendChild(createHareNavLink(hareNavState.className, 'races'));
+            }
+        }
+        
+        function createHareNavCard(title, level, value) {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-800 rounded-lg p-4 shadow hover:bg-gray-700 transition duration-200 cursor-pointer';
+            card.innerHTML = `<h3 class="text-lg font-semibold text-white truncate">${title}</h3>`;
+            card.addEventListener('click', () => {
+                hareNavState.level = getNextHistoryLevel(level);
+                hareNavState[level] = value;
+                renderHareNavView();
+            });
+            return card;
+        }
+
+        function createHareRaceCard(race) {
+            const card = document.createElement('div');
+            card.className = 'bg-blue-800 rounded-lg p-4 shadow hover:bg-blue-700 transition duration-200 cursor-pointer';
+            
+            const date = race.timestamp ? race.timestamp.toDate().toLocaleDateString('fr-FR') : 'N/A';
+            const distance = race.finalDistance || (race.performance ? race.performance[race.performance.length - 1] : 0);
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="text-white font-semibold">${date}</span>
+                    <span class="text-xl font-bold text-green-300">${distance} m</span>
+                </div>
+                <p class="text-sm text-blue-200">${race.className} / ${race.establishment}</p>
+            `;
+            card.addEventListener('click', () => {
+                selectHare(race);
+            });
+            return card;
+        }
+
+        function createHareNavLink(text, level) {
+            const link = createNavLink(text, level);
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (level === 'cities') resetHareNav();
+                if (level === 'establishments') {
+                    hareNavState.establishment = null;
+                    hareNavState.classLevel = null;
+                    hareNavState.className = null;
+                }
+                if (level === 'classLevels') {
+                    hareNavState.classLevel = null;
+                    hareNavState.className = null;
+                }
+                if (level === 'classNames') {
+                    hareNavState.className = null;
+                }
+                hareNavState.level = level;
+                renderHareNavView();
+            });
+            return link;
+        }
+        
+        function selectHare(race) {
+            selectedHareInfo = race;
+            const distance = race.finalDistance || (race.performance ? race.performance[race.performance.length - 1] : 0);
+            selectedHareDisplay.textContent = `${race.className || 'N/A'} (${distance}m)`;
+            selectedHareDisplay.classList.remove('italic', 'text-gray-400');
+            closeHareModal();
+        }
+
+
+        // --- 4.8 Modal de Résultat (Défi) ---
+
+        function showChallengeModal(isSuccess, userDist, hareDist) {
+            if (isSuccess) {
+                challengeModalTitle.textContent = "Défi Réussi !";
+                challengeModalMessage.textContent = `Vous avez battu le lièvre ! (${userDist}m vs ${hareDist}m)`;
+                challengeIconSuccess.style.display = 'block';
+                challengeIconFail.style.display = 'none';
+            } else {
+                challengeModalTitle.textContent = "Défi Perdu";
+                challengeModalMessage.textContent = `Le lièvre vous a battu. (${userDist}m vs ${hareDist}m)`;
+                challengeIconSuccess.style.display = 'none';
+                challengeIconFail.style.display = 'block';
+            }
+            challengeModal.classList.remove('modal-hidden');
+            challengeModal.classList.add('modal-visible');
+        }
+
+        function hideChallengeModal() {
+            challengeModal.classList.add('modal-hidden');
+            challengeModal.classList.remove('modal-visible');
+            
+            resetTimer();
+            changeScreen('setup');
+        }
+        
+        function updateGlobalStats() {
+            if (!globalKmDisplay || !globalRacesDisplay) return;
+
+            let totalRaces = availableRaces.length;
+            let totalMeters = 0;
+
+            availableRaces.forEach(race => {
+                let distance = race.finalDistance;
+                if (typeof distance !== 'number' && race.performance && race.performance.length > 0) {
+                    distance = race.performance[race.performance.length - 1];
+                }
+                if (typeof distance === 'number') {
+                    totalMeters += distance;
+                }
+            });
+
+            let totalKm = (totalMeters / 1000).toFixed(1); 
+
+            globalRacesDisplay.textContent = totalRaces;
+            globalKmDisplay.textContent = totalKm;
+        }
+        
+        // === 5. ÉCOUTEURS D'ÉVÉNEMENTS ===
+        
+        // Authentification
+        loginForm.addEventListener('submit', handleLogin);
+        signupButton.addEventListener('click', handleSignUp);
+        logoutButton.addEventListener('click', handleLogout);
+
+        // Navigation principale
+        goToSetupButton.addEventListener('click', () => changeScreen('setup'));
+        goToHistoryButton.addEventListener('click', () => changeScreen('history'));
+        historyBackToHomeButton.addEventListener('click', () => changeScreen('home'));
+        setupBackToHomeButton.addEventListener('click', () => changeScreen('home'));
+        
+        // Configuration
+        setupForm.addEventListener('submit', handleSetupSubmit);
+
+        // Contrôles de course
+        startButton.addEventListener('click', startTimer);
+        stopButton.addEventListener('click', () => stopTimer(false));
+        resetButton.addEventListener('click', () => {
+            resetTimer();
+            changeScreen('setup');
+        });
+        relaisButton.addEventListener('click', handleRelaisClick);
+
+        // Modal Défi
+        challengeModalClose.addEventListener('click', hideChallengeModal);
+        challengeModalOverlay.addEventListener('click', hideChallengeModal);
+        
+        // Modal Lièvre
+        openHareModalButton.addEventListener('click', openHareModal);
+        closeHareModalButton.addEventListener('click', closeHareModal);
+
+        // === 6. DÉMARRAGE DE L'APPLICATION ===
+        initializeAppAndAuth();
+
+    </script>
+</body>
+</html>
+
