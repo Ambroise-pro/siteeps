@@ -641,7 +641,7 @@
     </header>
     <h2>Temps par élève</h2>
     <div class="panel tblWrap" id="bilanTbl"></div>
-    <p class="help">Course 1, 2, 3 : dans l'ordre où l'élève a couru. Pour chaque course : temps intermédiaires, temps final (place et groupe en petit) et cumul des courses déjà faites. Cumul total : somme des temps finaux (« 2/3 courses » s'il en manque).</p>
+    <p class="help">Course 1, 2, 3 : dans l'ordre où l'élève a couru. Pour chaque course : temps intermédiaires et temps final (place et groupe en petit). Cumul : somme des temps finaux des courses (« 2/3 courses » s'il en manque une).</p>
     <h2>Courses de l'épreuve <span class="count" id="serieCount"></span></h2>
     <div class="panel list races" id="serieRaces"></div>
     <div class="more">
@@ -2214,11 +2214,12 @@
     $("serieTitle").textContent = se.title || "Épreuve";
     $("serieMeta").innerHTML = [se.cls ? "Classe " + esc(se.cls) : "", se.n + " courses par élève", new Date(se.id).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" }), se.closed ? "terminée" : "en cours"].filter(Boolean).map(x => "<span>" + x + "</span>").join("");
     const td = (v, cls) => '<td class="t' + (cls ? " " + cls : "") + '">' + v + "</td>";
-    const span = cpsAll.length + 2;
+    const span = cpsAll.length + 1;
+    const cumLbl = "Cumul " + Array.from({ length:se.n }, (x, i) => i + 1).join("+");
     let h = '<table class="splitTbl bilanTbl"><thead><tr><th rowspan="2">Élève</th>';
     for (let i = 1; i <= n; i++) h += '<th colspan="' + span + '" class="cg">Course ' + i + "</th>";
-    h += '<th rowspan="2" class="sumH">Cumul total</th><th rowspan="2" class="sumH">Moyenne</th><th rowspan="2" class="sumH">Meilleur</th></tr><tr>';
-    for (let i = 1; i <= n; i++) h += cpsAll.map((c, ci) => '<th class="sub' + (ci ? "" : " cg") + '">' + esc(c) + "</th>").join("") + '<th class="sub' + (cpsAll.length ? "" : " cg") + '">Temps</th><th class="sub">Cumul</th>';
+    h += '<th rowspan="2" class="sumH">' + cumLbl + '</th><th rowspan="2" class="sumH">Moyenne</th><th rowspan="2" class="sumH">Meilleur</th></tr><tr>';
+    for (let i = 1; i <= n; i++) h += cpsAll.map((c, ci) => '<th class="sub' + (ci ? "" : " cg") + '">' + esc(c) + "</th>").join("") + '<th class="sub' + (cpsAll.length ? "" : " cg") + '">Temps</th>';
     h += "</tr></thead><tbody>";
     R.forEach(s => {
       h += "<tr><td>" + esc(s.label) + (s.group ? '<br><small style="color:var(--ink-3)">Groupe ' + esc(s.group) + "</small>" : "") + "</td>";
@@ -2229,7 +2230,6 @@
           h += td(x ? fmt(x.t) : "–", (x ? "sp" : "miss") + (ci ? "" : " cg"));
         });
         h += td(r ? (r.t != null ? fmt(r.t) + "<small>" + (r.rank === 1 ? "1er" : r.rank + "e") + " · " + esc(r.group || "course " + r.race) + "</small>" : '<span class="miss">non classé</span>') : "–", (r ? "" : "miss") + (cpsAll.length ? "" : " cg"));
-        h += td(r && r.cum != null ? fmt(r.cum) : "–", r && r.cum != null ? "cum" : "miss");
       }
       h += td(s.total != null ? fmt(s.total) + (s.full ? "" : "<small>" + s.nDone + "/" + se.n + " courses</small>") : "–", "sum tot") +
         td(s.avg != null ? fmt(s.avg) : "–", "sum") + td(s.best != null ? fmt(s.best) : "–", "sum") + "</tr>";
@@ -2253,15 +2253,15 @@
     const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
     const cpsAll = [...new Set(serieRaces(serieShown).flatMap(h => (h.meta && h.meta.cps) || []))];
     const head = ["Élève", "Groupe"];
-    for (let i = 1; i <= n; i++) { cpsAll.forEach(c => head.push("Course " + i + " " + c)); head.push("Course " + i, "Cumul après course " + i); }
-    head.push("Cumul total", "Courses faites", "Moyenne", "Meilleur");
+    for (let i = 1; i <= n; i++) { cpsAll.forEach(c => head.push("Course " + i + " " + c)); head.push("Course " + i); }
+    head.push("Cumul " + Array.from({ length:se.n }, (x, i) => i + 1).join("+"), "Courses faites", "Moyenne", "Meilleur");
     const lines = [head.map(q).join(";")];
     R.forEach(s => {
       const row = [s.label, s.group];
       for (let i = 0; i < n; i++) {
         const r = s.runs[i];
         cpsAll.forEach(c => { const x = r && r.splits.find(y => y.c === c); row.push(x ? fmt(x.t) : ""); });
-        row.push(r && r.t != null ? fmt(r.t) : "", r && r.cum != null ? fmt(r.cum) : "");
+        row.push(r && r.t != null ? fmt(r.t) : "");
       }
       row.push(s.total != null ? fmt(s.total) : "", s.nDone, s.avg != null ? fmt(s.avg) : "", s.best != null ? fmt(s.best) : "");
       lines.push(row.map(q).join(";"));
