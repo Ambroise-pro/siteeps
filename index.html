@@ -387,6 +387,20 @@
   .cpTag{display:inline-block;font:700 15px/1 var(--cond);color:#fff;background:#1F5FA8;border-radius:7px;padding:5px 8px;letter-spacing:.3px}
   .cpTag.fin{background:var(--tartan)}
 
+  /* ---------- épreuve en plusieurs courses ---------- */
+  #serieCard{background:#E8F0FA;border:1.5px solid #B9CCE6;border-radius:var(--r-m);padding:12px 14px;margin-top:12px;font-size:15px}
+  #serieCard b{font-size:17px}
+  #serieCard .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  #serieCard .acts .btn{min-height:44px;font-size:15px;padding:0 14px}
+  .serieBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#E8F0FA;border:1.5px solid #B9CCE6;border-radius:var(--r-m);padding:10px 12px;margin:14px 0 4px;font-size:15px}
+  .serieBar b{font-size:16px}
+  .serieBar .btn{margin-left:auto;min-height:44px;font-size:15px;padding:0 14px}
+  #serie .races .row{cursor:pointer}
+  .bilanTbl td.t{min-width:92px}
+  .bilanTbl td.t small{white-space:nowrap}
+  .bilanTbl td.sum{background:var(--chalk)}
+  .bilanTbl td.g{color:var(--ink-2);font-size:14px;white-space:nowrap}
+
   /* ---------- visionneuse photo d'arrivée ---------- */
   #pf{position:fixed;inset:0;z-index:40;background:#000;display:grid;grid-template-columns:100%;grid-template-rows:minmax(0,1fr) auto}
   #pf .pimg{position:relative;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center;color:#fff9;padding-top:var(--st)}
@@ -475,6 +489,11 @@
     <h2>Temps intermédiaires</h2>
     <input id="fSplits" placeholder="Ex : 400 m, 800 m (vide = arrivée seulement)" autocomplete="off" aria-label="Temps intermédiaires">
     <p class="help" id="splitHelp" style="margin-top:6px">Sépare les passages par des virgules. Pendant la course, chaque appui est noté au passage affiché sur le gros bouton.</p>
+
+    <h2>Courses par élève</h2>
+    <div class="seg" data-for="reps"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button></div>
+    <p class="help">Pour un 3 × 500 m : 3. Filme et valide chaque course l'une après l'autre, en choisissant le groupe qui court ; le bilan réunit tous les temps.</p>
+    <div id="serieCard" class="hidden"></div>
 
     <details class="fold" id="setDet">
       <summary><span class="t">Réglages</span><span class="d" id="setSum"></span></summary>
@@ -573,6 +592,7 @@
       <div class="meta" id="resMeta"></div>
       <div class="facts" id="resFacts"></div>
     </header>
+    <div class="serieBar hidden" id="serieBar"><span id="serieBarTxt"></span><button class="btn ink" id="serieBarBtn">Bilan de l'épreuve</button></div>
 
     <h2>Vidéo de l'arrivée</h2>
     <video id="playback" controls playsinline></video>
@@ -599,6 +619,28 @@
   <div class="dock"><div class="wrap">
     <button class="btn ink wide" id="dlVideo"><svg><use href="#i-down"/></svg>Enregistrer la vidéo</button>
   </div></div>
+</section>
+
+<!-- ======================= BILAN D'ÉPREUVE ======================= -->
+<section id="serie" class="page hidden">
+  <div class="wrap">
+    <div class="topbar"><button class="iconbtn" id="serieBack" aria-label="Retour"><svg><use href="#i-back"/></svg></button></div>
+    <header class="reshead">
+      <h1 id="serieTitle">Épreuve</h1>
+      <div class="meta" id="serieMeta"></div>
+    </header>
+    <h2>Temps par élève</h2>
+    <div class="panel tblWrap" id="bilanTbl"></div>
+    <p class="help">Course 1, 2, 3 : dans l'ordre où l'élève a couru. En petit : les temps intermédiaires. Total et moyenne quand toutes les courses sont faites.</p>
+    <h2>Courses de l'épreuve <span class="count" id="serieCount"></span></h2>
+    <div class="panel list races" id="serieRaces"></div>
+    <div class="more">
+      <button class="btn" id="bilanCsv"><svg><use href="#i-down"/></svg>Tableur (CSV)</button>
+      <button class="btn" id="bilanHtml"><svg><use href="#i-down"/></svg>Fiche bilan</button>
+      <button class="btn" id="bilanCopy"><svg><use href="#i-copy"/></svg>Copier le texte</button>
+      <button class="btn go" id="bilanNext"><svg><use href="#i-cam"/></svg>Course suivante</button>
+    </div>
+  </div>
 </section>
 
 <div id="pf" class="hidden" role="dialog" aria-modal="true" aria-label="Photo d'arrivée">
@@ -633,7 +675,7 @@
     recStartPerf:0, chronoStartPerf:0, running:false, finished:false,
     arrivals:[], runners:[], meta:{}, videoBlob:null, videoURL:null, videoSaved:false,
     rafId:0, drawId:0, wakeLock:null, burn:true, beep:true, flashUntil:0, flashNum:0, flashTime:0,
-    opts:{ cam:"environment", hand:"right", quality:"light" }, recBytes:0
+    opts:{ cam:"environment", hand:"right", quality:"light", reps:"1" }, recBytes:0
   };
 
   // ---------- utilitaires ----------
@@ -677,7 +719,7 @@
       box.querySelectorAll("[data-v]").forEach(b => b.onclick = () => close(b.dataset.v === "1"));
     });
   }
-  function show(id){ ["setup","race","results","grp"].forEach(s => $(s).classList.toggle("hidden", s !== id)); window.scrollTo(0,0); }
+  function show(id){ ["setup","race","results","grp","serie"].forEach(s => $(s).classList.toggle("hidden", s !== id)); window.scrollTo(0,0); }
   const safeName = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-zA-Z0-9]+/g,"-").replace(/^-|-$/g,"");
   function baseFileName(){
     const d = new Date(S.meta.date);
@@ -725,10 +767,11 @@
   if (saved.cam) S.opts.cam = saved.cam;
   if (saved.hand) S.opts.hand = saved.hand;
   if (saved.quality) S.opts.quality = saved.quality;
+  if (saved.reps) S.opts.reps = String(saved.reps);
   document.querySelectorAll(".seg").forEach(seg => {
     const key = seg.dataset.for;
     const sync = () => seg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === S.opts[key])));
-    seg.querySelectorAll("button").forEach(b => b.onclick = () => { S.opts[key] = b.dataset.v; sync(); saveSetup(); qualityHint(); if (typeof renderSettingsSum === "function") renderSettingsSum(); });
+    seg.querySelectorAll("button").forEach(b => b.onclick = () => { S.opts[key] = b.dataset.v; sync(); saveSetup(); qualityHint(); if (typeof renderSettingsSum === "function") renderSettingsSum(); if (key === "reps" && typeof renderSerieCard === "function") renderSerieCard(); });
     sync();
   });
   // Débits constatés sur iPhone : ~55 Mo/min en 720p. Le mode léger vise ~3 fois moins.
@@ -738,7 +781,7 @@
   qualityHint();
   function saveSetup(){
     store.set("cc_setup", { title:$("fTitle").value, splits:$("fSplits").value, classId:S.classId, run:S.opts.run,
-      cam:S.opts.cam, hand:S.opts.hand, quality:S.opts.quality, burn:$("fBurn").checked, audio:$("fAudio").checked, beep:$("fBeep").checked });
+      cam:S.opts.cam, hand:S.opts.hand, quality:S.opts.quality, reps:S.opts.reps, burn:$("fBurn").checked, audio:$("fAudio").checked, beep:$("fBeep").checked });
   }
   const saveClasses = () => store.set("cc_classes", S.classes);
   const GCOL = ["#2C7A4B","#1F5FA8","#B83226","#8A4FB0","#C77A0A","#0F8A8A","#A63A73","#55626E"];
@@ -784,6 +827,7 @@
   }
   function renderSetup(animate){
     renderHero(animate);
+    renderSerieCard();
     const list = $("classList"); list.innerHTML = "";
     S.classes.forEach(c => {
       const b = document.createElement("button"); b.className = "cls";
@@ -811,7 +855,12 @@
     const v = $("fTitle").value.trim(), q = $("quickEvt"); q.innerHTML = "";
     EVENTS.forEach(e => {
       const b = document.createElement("button"); b.textContent = e; b.setAttribute("aria-pressed", String(v === e));
-      b.onclick = () => { $("fTitle").value = v === e ? "" : e; saveSetup(); renderQuick(); renderHero(); };
+      b.onclick = () => {
+        $("fTitle").value = v === e ? "" : e;
+        const m = $("fTitle").value.match(/^(\d)\s*[×x]/);
+        setReps(m ? m[1] : "1");
+        saveSetup(); renderQuick(); renderHero();
+      };
       q.appendChild(b);
     });
   }
@@ -1117,6 +1166,8 @@
     S.runners = runningRunners();
     const cc = curClass();
     S.meta = { title:$("fTitle").value.trim(), cls:cc ? cc.name : "", group:runLabel(), date:Date.now(), cps:parseCps($("fSplits").value) };
+    const se = serieForStart();
+    if (se) { S.meta.seriesId = se.id; S.meta.title = se.title || S.meta.title; }
     S.burn = $("fBurn").checked; S.beep = $("fBeep").checked;
     $("race").classList.toggle("left", S.opts.hand === "left");
     resetRace();
@@ -1615,6 +1666,13 @@
       [R.length > 1 ? fmt(R[R.length-1].t - R[0].t) : "–", "du 1er au dernier"]
     ];
     $("resFacts").innerHTML = facts.map(([v, l]) => "<div><b>" + v + "</b><span>" + l + "</span></div>").join("");
+    const se = S.meta.seriesId ? serieById(S.meta.seriesId) : null;
+    $("serieBar").classList.toggle("hidden", !se);
+    if (se) {
+      const races = serieRaces(se.id), no = races.findIndex(h => h.id === S.meta.date) + 1;
+      $("serieBarTxt").innerHTML = "<b>" + esc(se.title || "Épreuve") + "</b> · course " + (no || races.length) + " de l'épreuve" + (se.closed ? " (terminée)" : "");
+    }
+    $("againBtn").lastChild.textContent = se && !se.closed && (activeSerie() || {}).id === se.id ? "Course suivante" : "Nouvelle course";
     const todoOf = L => L.filter(a => !(a.runnerId || a.freeName)).length;
     const leftTxt = L => L.length ? (todoOf(L) ? todoOf(L) + " à nommer" : "tout est nommé") : "";
     $("resLeft").textContent = leftTxt(S.arrivals);
@@ -2009,6 +2067,7 @@
     store.set("cc_history", hist.slice(0, 60));
   }
   function renderHistory(){
+    renderSerieCard();
     const hist = store.get("cc_history", []);
     $("histWrap").classList.toggle("hidden", !hist.length);
     const list = $("histList"); list.innerHTML = "";
@@ -2020,19 +2079,14 @@
     (S.histAll ? hist : hist.slice(0, 3)).forEach(h => {
       const d = new Date(h.meta.date);
       const row = document.createElement("div"); row.className = "row";
+      const hs = h.meta.seriesId ? serieById(h.meta.seriesId) : null;
       row.innerHTML = '<div class="main"><b>' + esc(h.meta.title || "Course") + (h.meta.cls ? ", " + esc(h.meta.cls) : "") + (h.meta.group ? ", " + esc(h.meta.group) : "") + "</b><small>" +
+        (hs ? "épreuve en " + hs.n + " courses · " : "") +
         d.toLocaleDateString("fr-FR", { day:"numeric", month:"short" }) + " à " + pad(d.getHours()) + "h" + pad(d.getMinutes()) + ", " +
         h.arrivals.length + (h.arrivals.length > 1 ? " arrivées" : " arrivée") + '</small></div>' +
         '<button class="iconbtn" data-a="del" aria-label="Supprimer"><svg><use href="#i-trash"/></svg></button>' +
         '<button class="iconbtn" data-a="open" aria-label="Ouvrir"><svg><use href="#i-next"/></svg></button>';
-      const open = () => {
-        freePhotos();
-        Object.assign(S, { meta:h.meta, runners:h.runners, arrivals:h.arrivals, splits:h.splits || [], log:[], chronoStartPerf:h.chronoStartPerf,
-          recStartPerf:h.recStartPerf, videoBlob:null, videoURL:null, videoSaved:true, finishedFromHistory:true });
-        $("playback").removeAttribute("src");
-        renderResults(); $("videoInfo").textContent = "La vidéo de cette course n'est pas conservée sur l'appareil.";
-        show("results"); loadPhotos();
-      };
+      const open = () => openRace(h);
       row.querySelector('[data-a="open"]').onclick = open;
       row.querySelector(".main").onclick = open;
       row.querySelector('[data-a="del"]').onclick = async () => {
@@ -2044,7 +2098,192 @@
       list.appendChild(row);
     });
   }
+  function openRace(h){
+    freePhotos();
+    Object.assign(S, { meta:h.meta, runners:h.runners, arrivals:h.arrivals, splits:h.splits || [], log:[], chronoStartPerf:h.chronoStartPerf,
+      recStartPerf:h.recStartPerf, videoBlob:null, videoURL:null, videoSaved:true, finishedFromHistory:true });
+    $("playback").removeAttribute("src");
+    renderResults(); $("videoInfo").textContent = "La vidéo de cette course n'est pas conservée sur l'appareil.";
+    show("results"); loadPhotos();
+  }
+
+  // ---------- épreuve en plusieurs courses (ex : 3 × 500 m) ----------
+  // une épreuve = { id, title, classId, cls, n, closed } ; ses courses sont les courses de l'historique avec meta.seriesId = id
+  function getSeries(){ return store.get("cc_series", []); }
+  function setSeries(v){ store.set("cc_series", v); }
+  function serieById(id){ return getSeries().find(x => x.id === id) || null; }
+  function serieRaces(id){ return store.get("cc_history", []).filter(h => h.meta && h.meta.seriesId === id).sort((a, b) => a.meta.date - b.meta.date); }
+  function activeSerie(){
+    const id = store.get("cc_serieActive", 0), se = id && serieById(id);
+    return se && !se.closed ? se : null;
+  }
+  function setReps(v){
+    S.opts.reps = String(v);
+    document.querySelectorAll('.seg[data-for="reps"] button').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === S.opts.reps)));
+    saveSetup(); renderSerieCard();
+  }
+  // épreuve à laquelle la course qui démarre appartient (créée si besoin)
+  function serieForStart(){
+    const se = activeSerie(), c = curClass();
+    if (se && (!c || se.classId === c.id)) return se;
+    if (+S.opts.reps <= 1) return null;
+    const ns = { id:Date.now(), title:$("fTitle").value.trim() || (S.opts.reps + " courses"), classId:c ? c.id : "", cls:c ? c.name : "", n:+S.opts.reps, closed:false };
+    setSeries([ns].concat(getSeries()).slice(0, 40));
+    store.set("cc_serieActive", ns.id);
+    return ns;
+  }
+  function closeSerie(id){
+    setSeries(getSeries().map(x => x.id === id ? Object.assign({}, x, { closed:true }) : x));
+    if (store.get("cc_serieActive", 0) === id) store.set("cc_serieActive", 0);
+  }
+  function renderSerieCard(){
+    const card = $("serieCard"), se = activeSerie(), c = curClass();
+    if (se) {
+      const races = serieRaces(se.id), other = c && se.classId && se.classId !== c.id;
+      card.innerHTML = "<b>Épreuve en cours : " + esc(se.title) + "</b><br>" + esc(se.cls || "") + " · " + races.length + (races.length > 1 ? " courses filmées" : " course filmée") +
+        (other ? "<br><small>Elle concerne une autre classe : choisis " + esc(se.cls) + " pour la continuer, ou termine-la.</small>" : "<br><small>La prochaine course y sera ajoutée. Choisis le groupe qui court dans « Qui court ? ».</small>") +
+        '<div class="acts"><button class="btn ink" data-a="bilan">Voir le bilan</button><button class="btn" data-a="end">Terminer l\'épreuve</button></div>';
+      card.querySelector('[data-a="bilan"]').onclick = () => { serieFrom = "setup"; openSerie(se.id); };
+      card.querySelector('[data-a="end"]').onclick = async () => {
+        if (await ask("Terminer l'épreuve ?", "Les temps restent dans l'historique et le bilan reste consultable. La prochaine course commencera une nouvelle épreuve.", "Terminer")) { closeSerie(se.id); renderSerieCard(); }
+      };
+      card.classList.remove("hidden");
+    } else if (+S.opts.reps > 1) {
+      card.innerHTML = "<b>Épreuve en " + S.opts.reps + " courses</b><br><small>Elle commencera à la prochaine course. Après chaque course, « Course suivante » te demande quel groupe court.</small>";
+      card.classList.remove("hidden");
+    } else card.classList.add("hidden");
+  }
+
+  // bilan : pour chaque élève, ses courses dans l'ordre (temps final + temps intermédiaires)
+  var serieShown = 0, serieFrom = "setup";
+  function bilanData(id){
+    const se = serieById(id), races = serieRaces(id), by = new Map(), order = [];
+    const keyOf = r => (r.name || "").toLowerCase();
+    const add = (key, label, group) => { if (!by.has(key)) { by.set(key, { label, group, runs:[] }); order.push(key); } return by.get(key); };
+    // élèves de la classe d'abord, dans l'ordre de la liste
+    const cls = se && S.classes.find(c => c.id === se.classId);
+    if (cls) cls.items.forEach(x => { const n = itemName(x.line); add(n.name.toLowerCase(), (n.bib ? n.bib + " " : "") + n.name, x.g || ""); });
+    races.forEach((h, ri) => {
+      const cps = (h.meta && h.meta.cps) || [];
+      const runnerOf = id => (h.runners || []).find(r => r.id === id) || null;
+      const splitT = (rid, k) => { const a = ((h.splits || [])[k] || []).find(x => x.runnerId === rid); return a ? a.t : null; };
+      const seen = new Set();
+      let rank = 0;
+      (h.arrivals || []).forEach((a, i) => {
+        if (!a.tie) rank = i + 1;
+        const r = runnerOf(a.runnerId), nm = r ? r.name : (a.freeName || "");
+        if (!nm) return;
+        if (r) seen.add(r.id);
+        const st = add(nm.toLowerCase(), r ? runnerLabel(r) : nm, r && r.group ? r.group : "");
+        st.runs.push({ race:ri + 1, t:a.t, rank, group:h.meta.group || "", splits:cps.map((c, k) => ({ c, t:r ? splitT(r.id, k) : null })).filter(x => x.t != null) });
+      });
+      // élèves partis mais non classés à l'arrivée : temps intermédiaires seulement
+      (h.runners || []).filter(r => !seen.has(r.id)).forEach(r => {
+        const sp = cps.map((c, k) => ({ c, t:splitT(r.id, k) })).filter(x => x.t != null);
+        if (!sp.length) return;
+        add(keyOf(r), runnerLabel(r), r.group || "").runs.push({ race:ri + 1, t:null, rank:"", group:h.meta.group || "", splits:sp });
+      });
+    });
+    const n = Math.max(se ? se.n : 1, ...[...by.values()].map(s => s.runs.length), 1);
+    const rowsB = order.map(k => by.get(k)).map(s => {
+      const done = s.runs.filter(r => r.t != null).map(r => r.t);
+      const full = done.length >= (se ? se.n : 1) && done.length > 0;
+      const total = full ? done.slice(0, se ? se.n : done.length).reduce((a, b) => a + b, 0) : null;
+      return Object.assign(s, { best:done.length ? Math.min(...done) : null, total, avg:total != null ? total / Math.min(done.length, se ? se.n : done.length) : null });
+    });
+    return { se, races, n, rows:rowsB };
+  }
+  function openSerie(id){
+    serieShown = id;
+    const { se, races, n, rows:R } = bilanData(id);
+    if (!se) { toast("Épreuve introuvable"); return; }
+    $("serieTitle").textContent = se.title || "Épreuve";
+    $("serieMeta").innerHTML = [se.cls ? "Classe " + esc(se.cls) : "", se.n + " courses par élève", new Date(se.id).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" }), se.closed ? "terminée" : "en cours"].filter(Boolean).map(x => "<span>" + x + "</span>").join("");
+    const cell = r => {
+      if (!r) return '<td class="t miss">–</td>';
+      const sp = r.splits.map(x => esc(x.c) + " " + fmt(x.t)).join("<br>");
+      return '<td class="t">' + (r.t != null ? fmt(r.t) : '<span class="miss">non classé</span>') + "<small>" + (r.rank ? (r.rank === 1 ? "1er" : r.rank + "e") + " · " : "") + esc(r.group || "course " + r.race) + (sp ? "<br>" + sp : "") + "</small></td>";
+    };
+    let h = '<table class="splitTbl bilanTbl"><thead><tr><th>Élève</th>';
+    for (let i = 1; i <= n; i++) h += "<th>Course " + i + "</th>";
+    h += "<th>Total</th><th>Moyenne</th><th>Meilleur</th></tr></thead><tbody>";
+    R.forEach(s => {
+      h += "<tr><td>" + esc(s.label) + (s.group ? '<br><small style="color:var(--ink-3)">Groupe ' + esc(s.group) + "</small>" : "") + "</td>";
+      for (let i = 0; i < n; i++) h += cell(s.runs[i]);
+      h += '<td class="t sum">' + (s.total != null ? fmt(s.total) : "–") + '</td><td class="t sum">' + (s.avg != null ? fmt(s.avg) : "–") + '</td><td class="t sum">' + (s.best != null ? fmt(s.best) : "–") + "</td></tr>";
+    });
+    $("bilanTbl").innerHTML = R.length ? h + "</tbody></table>" : '<div class="dnfrow">Aucune course pour l\'instant</div>';
+    $("serieCount").textContent = races.length || "";
+    const list = $("serieRaces"); list.innerHTML = "";
+    races.forEach((r, i) => {
+      const d = new Date(r.meta.date), named = (r.arrivals || []).filter(a => a.runnerId || a.freeName).length;
+      const row = document.createElement("div"); row.className = "row";
+      row.innerHTML = '<div class="main"><b>Course ' + (i + 1) + (r.meta.group ? " · " + esc(r.meta.group) : "") + "</b><small>" + pad(d.getHours()) + "h" + pad(d.getMinutes()) + " · " +
+        (r.arrivals || []).length + " arrivées" + (named < (r.arrivals || []).length ? " · " + ((r.arrivals || []).length - named) + " à nommer" : "") + '</small></div><button class="iconbtn" aria-label="Ouvrir"><svg><use href="#i-next"/></svg></button>';
+      row.onclick = () => { if (S.videoBlob && !S.videoSaved) { toast("Enregistre d'abord la vidéo de la course en cours"); return; } serieFrom = "results"; openRace(r); };
+      list.appendChild(row);
+    });
+    $("bilanNext").classList.toggle("hidden", se.closed || (activeSerie() || {}).id !== se.id);
+    show("serie");
+  }
+  function bilanCSV(){
+    const { se, n, rows:R } = bilanData(serieShown);
+    const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const cpsAll = [...new Set(serieRaces(serieShown).flatMap(h => (h.meta && h.meta.cps) || []))];
+    const head = ["Élève", "Groupe"];
+    for (let i = 1; i <= n; i++) { head.push("Course " + i); cpsAll.forEach(c => head.push("Course " + i + " " + c)); }
+    head.push("Total", "Moyenne", "Meilleur");
+    const lines = [head.map(q).join(";")];
+    R.forEach(s => {
+      const row = [s.label, s.group];
+      for (let i = 0; i < n; i++) {
+        const r = s.runs[i];
+        row.push(r && r.t != null ? fmt(r.t) : "");
+        cpsAll.forEach(c => { const x = r && r.splits.find(y => y.c === c); row.push(x ? fmt(x.t) : ""); });
+      }
+      row.push(s.total != null ? fmt(s.total) : "", s.avg != null ? fmt(s.avg) : "", s.best != null ? fmt(s.best) : "");
+      lines.push(row.map(q).join(";"));
+    });
+    return "﻿" + lines.join("\r\n");
+  }
+  function bilanText(){
+    const { se, n, rows:R } = bilanData(serieShown);
+    const out = [[se.title, se.cls].filter(Boolean).join(" – "), ""];
+    R.forEach(s => {
+      const runs = s.runs.map((r, i) => "C" + (i + 1) + " " + (r.t != null ? fmt(r.t) : "–")).join("  ");
+      out.push(s.label + "   " + (runs || "aucune course") + (s.total != null ? "   total " + fmt(s.total) + "   moy. " + fmt(s.avg) : ""));
+    });
+    return out.join("\n");
+  }
+  function serieFileName(){
+    const se = serieById(serieShown), d = new Date(se ? se.id : Date.now());
+    return ["epreuve", d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()), safeName(se && se.title), safeName(se && se.cls)].filter(Boolean).join("_");
+  }
+  $("bilanCsv").onclick = () => { download(new Blob([bilanCSV()], { type:"text/csv;charset=utf-8" }), serieFileName() + ".csv"); toast("Tableur enregistré"); };
+  $("bilanCopy").onclick = async () => { try { await navigator.clipboard.writeText(bilanText()); toast("Bilan copié"); } catch(e) { toast("Copie impossible sur cet appareil"); } };
+  $("bilanHtml").onclick = () => {
+    const se = serieById(serieShown);
+    const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + esc((se.title || "Épreuve") + (se.cls ? " – " + se.cls : "")) + "</title><style>" +
+      "body{margin:0;background:#fff;color:#14212B;font:15px/1.4 -apple-system,'Segoe UI',Roboto,sans-serif}.w{max-width:1100px;margin:0 auto;padding:24px 16px}h1{margin:0;font-size:30px}.m{color:#55626E;margin:4px 0 18px}" +
+      "table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:#55626E;padding:8px;border-bottom:2px solid #DCE0D9}td{padding:8px;border-bottom:1px solid #DCE0D9;vertical-align:top}" +
+      "td.t{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}td.t small{display:block;font-weight:400;color:#8A949D;font-size:12px}.miss{color:#8A949D}.sum{background:#F4F5F2}" +
+      ".p{margin-top:18px;padding:10px 16px;border:0;border-radius:8px;background:#14212B;color:#fff;font-weight:700}@media print{.p{display:none}tr{break-inside:avoid}}</style></head><body><div class=\"w\"><h1>" +
+      esc(se.title || "Épreuve") + '</h1><div class="m">' + $("serieMeta").textContent.replace(/\s{2,}/g, " ") + "</div>" + $("bilanTbl").innerHTML.replace(/style="[^"]*"/g, "") +
+      '<button class="p" onclick="print()">Imprimer ou enregistrer en PDF</button></div></body></html>';
+    download(new Blob([html], { type:"text/html" }), serieFileName() + ".html"); toast("Fiche bilan enregistrée");
+  };
+  $("serieBarBtn").onclick = () => { if (S.meta.seriesId) { serieFrom = "results"; openSerie(S.meta.seriesId); } };
+  $("serieBack").onclick = () => {
+    if (serieFrom === "results") { renderResults(); show("results"); return; }
+    show("setup"); renderSetup(); renderHistory();
+  };
+  $("bilanNext").onclick = async () => {
+    if (serieFrom === "results") { renderResults(); show("results"); $("againBtn").click(); return; }
+    show("setup"); renderSetup(); renderSerieCard(); $("openCam").scrollIntoView({ block:"center" });
+  };
+
   renderHistory();
+  renderSerieCard();
   setClock($("clock"), 0);
   purgePhotos();
 
