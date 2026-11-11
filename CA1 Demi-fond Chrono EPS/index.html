@@ -377,7 +377,23 @@
   #pf .pnav .btn:disabled{opacity:.35}
   #pfClose{position:absolute;top:calc(10px + var(--st));right:calc(10px + var(--sr));background:#fffe;color:var(--ink);border-radius:99px;width:44px;height:44px;font-size:26px;line-height:1}
   #pfHint{position:absolute;left:10px;bottom:10px;background:#000a;color:#fff;font-size:13px;padding:4px 10px;border-radius:99px;pointer-events:none}
-  @media (orientation:landscape){
+  /* slots de la visionneuse + liste des élèves à toucher */
+  #pf .vslot{display:flex;align-items:center;gap:8px;min-height:50px;padding:6px 6px 6px 12px;border:2px solid var(--rule);border-radius:10px;
+    font:700 18px/1.2 var(--text);background:var(--paper);text-align:left;width:100%}
+  #pf .vslot.empty{color:var(--ink-2);font-weight:600;font-size:15px;border-style:dashed}
+  #pf .vslot.on{border-color:var(--signal);background:#FFF7D6;border-style:solid}
+  #pf .vslot span{flex:1;min-width:0}
+  #pf .vslot .x{flex:none;width:38px;height:38px;border-radius:8px;font-size:22px;color:var(--tartan)}
+  #pf .ptitle{display:flex;align-items:center;gap:8px;margin:14px 0 6px;font:700 13px/1 var(--text);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+  #pf .ptitle input{margin-left:auto;width:52%;min-height:0;padding:7px 10px;font-size:15px;border-radius:8px;text-transform:none;letter-spacing:0}
+  #pfPick{display:flex;flex-direction:column;gap:6px}
+  #pfPick .pg{font:700 13px/1 var(--text);color:var(--ink-3);margin:8px 0 0;text-transform:uppercase;letter-spacing:.05em}
+  #pfPick button{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:8px 12px;border:1.5px solid var(--rule);border-radius:10px;
+    background:var(--chalk);font:600 18px/1.2 var(--text);text-align:left}
+  #pfPick button:active{background:var(--signal)}
+  #pfPick button .bib{font-size:16px}
+  #pfPick .none{color:var(--ink-2);font-size:15px;padding:8px 2px}
+  @media (orientation:landscape),(min-width:760px){
     #pf{grid-template-columns:minmax(0,1fr) clamp(300px,36vw,420px);grid-template-rows:100%}
     #pf .pside{max-height:none;padding-top:calc(14px + var(--st))}
     #pfClose{right:auto;left:calc(10px + var(--sl))}
@@ -559,6 +575,10 @@
     <div class="pnav">
       <button class="btn" id="pfPrev"><svg><use href="#i-prev"/></svg>Précédent</button>
       <button class="btn go" id="pfNext">Suivant<svg><use href="#i-next"/></svg></button>
+    </div>
+    <div id="pfPickBox">
+      <div class="ptitle"><span id="pfPickTitle">Élèves</span><input id="pfFilter" type="search" placeholder="Rechercher…" aria-label="Rechercher un élève"></div>
+      <div id="pfPick"></div>
     </div>
   </div>
 </div>
@@ -820,9 +840,9 @@
         if (col.group != null) group = r[col.group] || "";
         if (col.cls != null) cls = r[col.cls] || "";
       } else {
-        const cells = r.filter(Boolean);
-        if (cells.length > 1 && /^\d{1,4}$/.test(cells[0])) bib = cells.shift();
-        name = cells.join(" ");
+        // pas d'en-tête reconnu : colonne A = nom et prénom (colonne B si A est un numéro de dossard)
+        if (/^\d{1,4}$/.test(r[0] || "") && r[1]) { bib = r[0]; name = r[1]; }
+        else name = r[0] || "";
       }
       name = name.replace(/\s+/g, " ").trim();
       if (name && !/^non class/i.test(name)) list.push({ bib, name, group, cls });
@@ -1365,6 +1385,7 @@
     try { if (S.recorder && S.recorder.state !== "inactive") S.recorder.stop(); } catch(e){}
     setTimeout(() => { stopCompositor(); closeCamera(); }, 400);
     saveToHistory(); renderResults(); show("results");
+    if (S.arrivals.length) openViewer(0);
   }
   function closeCamera(){
     stopCompositor();
@@ -1545,7 +1566,7 @@
   function openViewer(gi){
     const G = arrivalGroups(); if (!G.length) return;
     if (gi == null) { gi = G.findIndex(g => g.some(i => !(S.arrivals[i].runnerId || S.arrivals[i].freeName))); if (gi < 0) gi = 0; }
-    pfIdx = gi; $("pf").classList.remove("hidden"); renderViewer();
+    pfIdx = gi; pfSlot = -1; $("pfFilter").value = ""; $("pf").classList.remove("hidden"); renderViewer();
     history.pushState({pf:1}, "");
   }
   function closeViewer(){ $("pf").classList.add("hidden"); $("pfImg").classList.remove("zoom"); renderResults(); }
@@ -1562,16 +1583,82 @@
     $("pfNum").textContent = grp[0] + 1;
     $("pfTime").textContent = fmt(head.t);
     $("pfGap").textContent = (head.t - first > 0 ? fmtGap(head.t - first) + " sur le 1er · " : "") + "passage " + (pfIdx + 1) + " / " + G.length;
-    const slots = $("pfSlots"); slots.innerHTML = ""; grp.forEach(i => slots.appendChild(slotEl(i)));
+    renderPick(grp);
     $("pfTie").textContent = "+ " + (grp.length + 1) + "e élève sur cette photo (ex aequo)";
     $("pfPrev").disabled = pfIdx === 0;
     $("pfNext").innerHTML = pfIdx === G.length - 1 ? "Terminé" : 'Suivant<svg><use href="#i-next"/></svg>';
   }
+  // l'arrivée affichée reçoit l'élève touché dans la liste
+  let pfSlot = -1, pfTimer = null;
+  function renderPick(grp){
+    const slots = $("pfSlots"); slots.innerHTML = "";
+    $("pfPickBox").classList.toggle("hidden", !S.runners.length);
+    if (!S.runners.length) { grp.forEach(i => slots.appendChild(slotEl(i))); return; }
+    if (!grp.includes(pfSlot)) pfSlot = grp.find(i => !S.arrivals[i].runnerId);
+    if (pfSlot == null) pfSlot = -1;
+    grp.forEach(i => {
+      const a = S.arrivals[i], r = runnerById(a.runnerId);
+      const b = document.createElement("div");
+      b.className = "vslot" + (r ? "" : " empty") + (i === pfSlot ? " on" : "");
+      b.setAttribute("role", "button"); b.tabIndex = 0;
+      b.innerHTML = "<span>" + (r ? esc(runnerLabel(r)) : (i === pfSlot ? "Touche l'élève dans la liste" : "Élève à choisir")) + "</span>";
+      b.onclick = () => { pfSlot = i; renderViewer(); };
+      if (r || a.tie) {
+        const x = document.createElement("button"); x.className = "x"; x.textContent = "×";
+        x.setAttribute("aria-label", r ? "Retirer cet élève" : "Retirer cette ligne");
+        x.onclick = e => {
+          e.stopPropagation();
+          if (r) { a.runnerId = null; pfSlot = i; } else S.arrivals.splice(i, 1);
+          changed();
+        };
+        b.appendChild(x);
+      }
+      slots.appendChild(b);
+    });
+    // élèves restants (ceux déjà placés disparaissent)
+    const used = new Set(S.arrivals.map(x => x.runnerId).filter(Boolean));
+    const q = $("pfFilter").value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const left = S.runners.filter(r => !used.has(r.id));
+    const avail = left.filter(r => !q || runnerLabel(r).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(q));
+    $("pfPickTitle").textContent = left.length ? "Élèves restants (" + left.length + ")" : "Tous les élèves sont placés";
+    const box = $("pfPick"); box.innerHTML = "";
+    const multi = new Set(S.runners.map(r => r.group)).size > 1;
+    const btn = r => {
+      const b = document.createElement("button");
+      b.innerHTML = (r.bib ? '<span class="bib">' + esc(r.bib) + "</span>" : "") + "<span>" + esc(r.name) + "</span>";
+      b.onclick = () => pick(r.id);
+      return b;
+    };
+    if (multi) [...new Set(avail.map(r => r.group))].forEach(g => {
+      const h = document.createElement("div"); h.className = "pg"; h.textContent = "Groupe " + g; box.appendChild(h);
+      avail.filter(r => r.group === g).forEach(r => box.appendChild(btn(r)));
+    });
+    else avail.forEach(r => box.appendChild(btn(r)));
+    if (!avail.length && left.length) box.innerHTML = '<div class="none">Aucun élève ne correspond</div>';
+  }
+  function pick(id){
+    const G = arrivalGroups(), grp = G[pfIdx]; if (!grp) return;
+    let i = grp.includes(pfSlot) ? pfSlot : grp.find(j => !S.arrivals[j].runnerId);
+    if (i == null) i = grp[grp.length - 1];
+    S.arrivals[i].runnerId = id;
+    $("pfFilter").value = "";
+    pfSlot = grp.find(j => !S.arrivals[j].runnerId);
+    if (pfSlot == null) pfSlot = -1;
+    changed();
+    feedback(990, 0.06, 20);
+    // arrivée complète : on passe à la suivante
+    clearTimeout(pfTimer);
+    if (pfSlot < 0 && pfIdx < G.length - 1) {
+      const at = pfIdx;
+      pfTimer = setTimeout(() => { if (pfIdx === at && !$("pf").classList.contains("hidden")) { pfIdx++; pfSlot = -1; renderViewer(); } }, 450);
+    }
+  }
+  $("pfFilter").oninput = () => renderViewer();
   $("pfOpen").onclick = () => openViewer();
   $("pfClose").onclick = () => history.back();
-  $("pfPrev").onclick = () => { pfIdx--; renderViewer(); };
-  $("pfNext").onclick = () => { if (pfIdx >= arrivalGroups().length - 1) history.back(); else { pfIdx++; renderViewer(); } };
-  $("pfTie").onclick = () => addTie(arrivalGroups()[pfIdx]);
+  $("pfPrev").onclick = () => { clearTimeout(pfTimer); pfIdx--; pfSlot = -1; renderViewer(); };
+  $("pfNext").onclick = () => { clearTimeout(pfTimer); if (pfIdx >= arrivalGroups().length - 1) history.back(); else { pfIdx++; pfSlot = -1; renderViewer(); } };
+  $("pfTie").onclick = () => { const g = arrivalGroups()[pfIdx]; addTie(g); pfSlot = g[g.length - 1] + 1; renderViewer(); };
   $("pfImg").onclick = e => {
     const img = e.currentTarget, r = img.getBoundingClientRect();
     if (!img.classList.contains("zoom")) img.style.transformOrigin = ((e.clientX - r.left) / r.width * 100) + "% " + ((e.clientY - r.top) / r.height * 100) + "%";

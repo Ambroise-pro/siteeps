@@ -14,3 +14,8 @@ Application web pour chronométrer les arrivées d'une course de demi-fond en fi
 - Élèves arrivés ensemble : « + Ajouter un élève » sur la même arrivée
 
 Ouvrir la page publiée (GitHub Pages) dans Safari ou Chrome et autoriser la caméra.
+
+## Modifications EPS Vauban
+
+- À la fin de la course, la photo de l'arrivée n°1 s'ouvre en grand avec, à droite, la liste des élèves restants : un toucher sur un nom l'attribue à l'arrivée et passe automatiquement à la suivante (« × » pour corriger, recherche pour les grandes listes).
+- Import CSV sans en-tête : la colonne A contient le nom et le prénom (colonne B si la colonne A est un numéro de dossard).
