@@ -396,7 +396,17 @@
   .serieBar b{font-size:16px}
   .serieBar .btn{margin-left:auto;min-height:44px;font-size:15px;padding:0 14px}
   #serie .races .row{cursor:pointer}
-  .bilanTbl td.t{min-width:92px}
+  #serie .wrap{max-width:1400px}
+  .bilanTbl th:first-child,.bilanTbl td:first-child{position:sticky;left:0;background:var(--paper);z-index:1;min-width:110px}
+  .bilanTbl td.t{min-width:84px}
+  .bilanTbl th{text-align:center}
+  .bilanTbl th:first-child{text-align:left}
+  .bilanTbl th.sub{font-size:12px;font-weight:600;padding-top:4px}
+  .bilanTbl .cg{border-left:2px solid var(--rule)}
+  .bilanTbl td.sp{color:#1F5FA8;font-size:16px}
+  .bilanTbl td.cum{color:var(--tartan)}
+  .bilanTbl td.tot{font-size:20px}
+  .bilanTbl th.sumH{background:var(--chalk)}
   .bilanTbl td.t small{white-space:nowrap}
   .bilanTbl td.sum{background:var(--chalk)}
   .bilanTbl td.g{color:var(--ink-2);font-size:14px;white-space:nowrap}
@@ -631,7 +641,7 @@
     </header>
     <h2>Temps par élève</h2>
     <div class="panel tblWrap" id="bilanTbl"></div>
-    <p class="help">Course 1, 2, 3 : dans l'ordre où l'élève a couru. En petit : les temps intermédiaires. Total et moyenne quand toutes les courses sont faites.</p>
+    <p class="help">Course 1, 2, 3 : dans l'ordre où l'élève a couru. Pour chaque course : temps intermédiaires, temps final (place et groupe en petit) et cumul des courses déjà faites. Cumul total : somme des temps finaux (« 2/3 courses » s'il en manque).</p>
     <h2>Courses de l'épreuve <span class="count" id="serieCount"></span></h2>
     <div class="panel list races" id="serieRaces"></div>
     <div class="more">
@@ -2187,30 +2197,42 @@
     const n = Math.max(se ? se.n : 1, ...[...by.values()].map(s => s.runs.length), 1);
     const rowsB = order.map(k => by.get(k)).map(s => {
       const done = s.runs.filter(r => r.t != null).map(r => r.t);
-      const full = done.length >= (se ? se.n : 1) && done.length > 0;
-      const total = full ? done.slice(0, se ? se.n : done.length).reduce((a, b) => a + b, 0) : null;
-      return Object.assign(s, { best:done.length ? Math.min(...done) : null, total, avg:total != null ? total / Math.min(done.length, se ? se.n : done.length) : null });
+      // cumul après chaque course (s'arrête à la première course sans temps final)
+      let acc = 0, ok = true;
+      s.runs.forEach(r => { if (ok && r.t != null) { acc += r.t; r.cum = acc; } else { ok = false; r.cum = null; } });
+      const nDone = done.length;
+      const total = nDone ? done.reduce((a, b) => a + b, 0) : null;
+      return Object.assign(s, { best:nDone ? Math.min(...done) : null, total, nDone, full:nDone >= (se ? se.n : 1), avg:nDone ? total / nDone : null });
     });
-    return { se, races, n, rows:rowsB };
+    const cpsAll = [...new Set(races.flatMap(h => (h.meta && h.meta.cps) || []))];
+    return { se, races, n, rows:rowsB, cpsAll };
   }
   function openSerie(id){
     serieShown = id;
-    const { se, races, n, rows:R } = bilanData(id);
+    const { se, races, n, rows:R, cpsAll } = bilanData(id);
     if (!se) { toast("Épreuve introuvable"); return; }
     $("serieTitle").textContent = se.title || "Épreuve";
     $("serieMeta").innerHTML = [se.cls ? "Classe " + esc(se.cls) : "", se.n + " courses par élève", new Date(se.id).toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long" }), se.closed ? "terminée" : "en cours"].filter(Boolean).map(x => "<span>" + x + "</span>").join("");
-    const cell = r => {
-      if (!r) return '<td class="t miss">–</td>';
-      const sp = r.splits.map(x => esc(x.c) + " " + fmt(x.t)).join("<br>");
-      return '<td class="t">' + (r.t != null ? fmt(r.t) : '<span class="miss">non classé</span>') + "<small>" + (r.rank ? (r.rank === 1 ? "1er" : r.rank + "e") + " · " : "") + esc(r.group || "course " + r.race) + (sp ? "<br>" + sp : "") + "</small></td>";
-    };
-    let h = '<table class="splitTbl bilanTbl"><thead><tr><th>Élève</th>';
-    for (let i = 1; i <= n; i++) h += "<th>Course " + i + "</th>";
-    h += "<th>Total</th><th>Moyenne</th><th>Meilleur</th></tr></thead><tbody>";
+    const td = (v, cls) => '<td class="t' + (cls ? " " + cls : "") + '">' + v + "</td>";
+    const span = cpsAll.length + 2;
+    let h = '<table class="splitTbl bilanTbl"><thead><tr><th rowspan="2">Élève</th>';
+    for (let i = 1; i <= n; i++) h += '<th colspan="' + span + '" class="cg">Course ' + i + "</th>";
+    h += '<th rowspan="2" class="sumH">Cumul total</th><th rowspan="2" class="sumH">Moyenne</th><th rowspan="2" class="sumH">Meilleur</th></tr><tr>';
+    for (let i = 1; i <= n; i++) h += cpsAll.map((c, ci) => '<th class="sub' + (ci ? "" : " cg") + '">' + esc(c) + "</th>").join("") + '<th class="sub' + (cpsAll.length ? "" : " cg") + '">Temps</th><th class="sub">Cumul</th>';
+    h += "</tr></thead><tbody>";
     R.forEach(s => {
       h += "<tr><td>" + esc(s.label) + (s.group ? '<br><small style="color:var(--ink-3)">Groupe ' + esc(s.group) + "</small>" : "") + "</td>";
-      for (let i = 0; i < n; i++) h += cell(s.runs[i]);
-      h += '<td class="t sum">' + (s.total != null ? fmt(s.total) : "–") + '</td><td class="t sum">' + (s.avg != null ? fmt(s.avg) : "–") + '</td><td class="t sum">' + (s.best != null ? fmt(s.best) : "–") + "</td></tr>";
+      for (let i = 0; i < n; i++) {
+        const r = s.runs[i];
+        cpsAll.forEach((c, ci) => {
+          const x = r && r.splits.find(y => y.c === c);
+          h += td(x ? fmt(x.t) : "–", (x ? "sp" : "miss") + (ci ? "" : " cg"));
+        });
+        h += td(r ? (r.t != null ? fmt(r.t) + "<small>" + (r.rank === 1 ? "1er" : r.rank + "e") + " · " + esc(r.group || "course " + r.race) + "</small>" : '<span class="miss">non classé</span>') : "–", (r ? "" : "miss") + (cpsAll.length ? "" : " cg"));
+        h += td(r && r.cum != null ? fmt(r.cum) : "–", r && r.cum != null ? "cum" : "miss");
+      }
+      h += td(s.total != null ? fmt(s.total) + (s.full ? "" : "<small>" + s.nDone + "/" + se.n + " courses</small>") : "–", "sum tot") +
+        td(s.avg != null ? fmt(s.avg) : "–", "sum") + td(s.best != null ? fmt(s.best) : "–", "sum") + "</tr>";
     });
     $("bilanTbl").innerHTML = R.length ? h + "</tbody></table>" : '<div class="dnfrow">Aucune course pour l\'instant</div>';
     $("serieCount").textContent = races.length || "";
@@ -2231,17 +2253,17 @@
     const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
     const cpsAll = [...new Set(serieRaces(serieShown).flatMap(h => (h.meta && h.meta.cps) || []))];
     const head = ["Élève", "Groupe"];
-    for (let i = 1; i <= n; i++) { head.push("Course " + i); cpsAll.forEach(c => head.push("Course " + i + " " + c)); }
-    head.push("Total", "Moyenne", "Meilleur");
+    for (let i = 1; i <= n; i++) { cpsAll.forEach(c => head.push("Course " + i + " " + c)); head.push("Course " + i, "Cumul après course " + i); }
+    head.push("Cumul total", "Courses faites", "Moyenne", "Meilleur");
     const lines = [head.map(q).join(";")];
     R.forEach(s => {
       const row = [s.label, s.group];
       for (let i = 0; i < n; i++) {
         const r = s.runs[i];
-        row.push(r && r.t != null ? fmt(r.t) : "");
         cpsAll.forEach(c => { const x = r && r.splits.find(y => y.c === c); row.push(x ? fmt(x.t) : ""); });
+        row.push(r && r.t != null ? fmt(r.t) : "", r && r.cum != null ? fmt(r.cum) : "");
       }
-      row.push(s.total != null ? fmt(s.total) : "", s.avg != null ? fmt(s.avg) : "", s.best != null ? fmt(s.best) : "");
+      row.push(s.total != null ? fmt(s.total) : "", s.nDone, s.avg != null ? fmt(s.avg) : "", s.best != null ? fmt(s.best) : "");
       lines.push(row.map(q).join(";"));
     });
     return "﻿" + lines.join("\r\n");
@@ -2250,8 +2272,8 @@
     const { se, n, rows:R } = bilanData(serieShown);
     const out = [[se.title, se.cls].filter(Boolean).join(" – "), ""];
     R.forEach(s => {
-      const runs = s.runs.map((r, i) => "C" + (i + 1) + " " + (r.t != null ? fmt(r.t) : "–")).join("  ");
-      out.push(s.label + "   " + (runs || "aucune course") + (s.total != null ? "   total " + fmt(s.total) + "   moy. " + fmt(s.avg) : ""));
+      const runs = s.runs.map((r, i) => "C" + (i + 1) + " " + (r.t != null ? fmt(r.t) : "–") + (r.splits.length ? " (" + r.splits.map(x => x.c + " " + fmt(x.t)).join(", ") + ")" : "")).join("  ");
+      out.push(s.label + "   " + (runs || "aucune course") + (s.total != null ? "   cumul " + fmt(s.total) + (s.full ? "" : " (" + s.nDone + "/" + se.n + ")") + "   moy. " + fmt(s.avg) : ""));
     });
     return out.join("\n");
   }
@@ -2266,7 +2288,7 @@
     const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + esc((se.title || "Épreuve") + (se.cls ? " – " + se.cls : "")) + "</title><style>" +
       "body{margin:0;background:#fff;color:#14212B;font:15px/1.4 -apple-system,'Segoe UI',Roboto,sans-serif}.w{max-width:1100px;margin:0 auto;padding:24px 16px}h1{margin:0;font-size:30px}.m{color:#55626E;margin:4px 0 18px}" +
       "table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:#55626E;padding:8px;border-bottom:2px solid #DCE0D9}td{padding:8px;border-bottom:1px solid #DCE0D9;vertical-align:top}" +
-      "td.t{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}td.t small{display:block;font-weight:400;color:#8A949D;font-size:12px}.miss{color:#8A949D}.sum{background:#F4F5F2}" +
+      "td.t{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}td.t small{display:block;font-weight:400;color:#8A949D;font-size:12px}.miss{color:#8A949D}.sum{background:#F4F5F2}th{text-align:center}th:first-child{text-align:left}.cg{border-left:2px solid #DCE0D9}.sp{color:#1F5FA8}.cum{color:#B83226}.tot{font-size:18px}" +
       ".p{margin-top:18px;padding:10px 16px;border:0;border-radius:8px;background:#14212B;color:#fff;font-weight:700}@media print{.p{display:none}tr{break-inside:avoid}}</style></head><body><div class=\"w\"><h1>" +
       esc(se.title || "Épreuve") + '</h1><div class="m">' + $("serieMeta").textContent.replace(/\s{2,}/g, " ") + "</div>" + $("bilanTbl").innerHTML.replace(/style="[^"]*"/g, "") +
       '<button class="p" onclick="print()">Imprimer ou enregistrer en PDF</button></div></body></html>';
