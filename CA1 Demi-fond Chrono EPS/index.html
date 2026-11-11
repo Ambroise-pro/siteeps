@@ -208,6 +208,17 @@
   #chips .chip:active small{color:#fff}
   #chips .note{flex:none;display:inline-flex;align-items:center;gap:8px;font-size:16px;font-weight:700;white-space:nowrap;color:var(--ink-2);padding-right:2px}
   #chips .note .bib{font-size:20px}
+  /* points de passage (temps intermédiaires) */
+  #cpBar{display:flex;gap:6px;flex:none;overflow-x:auto;scrollbar-width:none}
+  #cpBar::-webkit-scrollbar{display:none}
+  #cpBar button{flex:1 0 auto;min-height:40px;padding:4px 12px;border-radius:10px;border:2px solid var(--rule);background:var(--chalk);
+    font:700 16px/1.1 var(--cond);letter-spacing:.3px;white-space:nowrap;color:var(--ink-2)}
+  #cpBar button small{font:600 13px var(--text);margin-left:6px;opacity:.8}
+  #cpBar button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  #cpBar button.full:not([aria-pressed="true"]){border-color:var(--infield);color:var(--infield)}
+  #mainBtn.split{background:#1F5FA8;
+    background-image:repeating-linear-gradient(90deg,transparent 0 calc(25% - 2px),#ffffff1f calc(25% - 2px) 25%)}
+  #lastList .tag .cp{font:700 14px/1 var(--cond);color:#fff;background:#1F5FA8;border-radius:6px;padding:4px 6px}
   /* gros bouton */
   #mainBtn{flex:none;height:clamp(116px,25vh,220px);border-radius:var(--r-l);display:grid;
     grid-template-columns:1fr auto;align-items:center;gap:12px;padding:0 22px;text-align:left;color:#fff;
@@ -362,6 +373,20 @@
   .dnfrow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1.5px solid var(--rule);color:var(--ink-2)}
   .dnfrow .bib{font-size:22px}
 
+  /* ---------- temps intermédiaires : tableau par élève ---------- */
+  .splitTbl{width:100%;border-collapse:collapse;font-size:16px}
+  .splitTbl th{text-align:left;font-size:13px;font-weight:700;color:var(--ink-2);padding:10px 8px;border-bottom:2px solid var(--rule);white-space:nowrap}
+  .splitTbl td{padding:9px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
+  .splitTbl tr:last-child td{border-bottom:0}
+  .splitTbl td.t{font:700 18px/1.1 var(--cond);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .splitTbl td.t small{display:block;font:500 13px var(--text);color:var(--ink-3)}
+  .splitTbl td.pl{font:800 20px/1 var(--cond);width:36px;text-align:center}
+  .splitTbl td.miss{color:var(--ink-3)}
+  .tblWrap{overflow-x:auto}
+  .cpH{display:flex;align-items:center;gap:8px}
+  .cpTag{display:inline-block;font:700 15px/1 var(--cond);color:#fff;background:#1F5FA8;border-radius:7px;padding:5px 8px;letter-spacing:.3px}
+  .cpTag.fin{background:var(--tartan)}
+
   /* ---------- visionneuse photo d'arrivée ---------- */
   #pf{position:fixed;inset:0;z-index:40;background:#000;display:grid;grid-template-columns:100%;grid-template-rows:minmax(0,1fr) auto}
   #pf .pimg{position:relative;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center;color:#fff9;padding-top:var(--st)}
@@ -369,6 +394,7 @@
   #pf .pimg img.zoom{transform:scale(2.6)}
   #pf .pside{background:var(--paper);padding:12px calc(14px + var(--sr)) calc(12px + var(--sb)) calc(14px + var(--sl));overflow:auto;max-height:60vh}
   #pf .phead{display:flex;align-items:center;gap:12px}
+  #pfCp{margin-bottom:8px}
   #pf .phead .bib{font-size:34px}
   #pf .phead b{font:800 34px/1 var(--cond);font-variant-numeric:tabular-nums}
   #pf .phead .iconbtn{margin-left:auto;font-size:28px;color:var(--ink)}
@@ -445,6 +471,10 @@
     <h2>Épreuve</h2>
     <input id="fTitle" placeholder="Nom de l'épreuve" autocomplete="off" aria-label="Épreuve">
     <div class="quick" id="quickEvt"></div>
+
+    <h2>Temps intermédiaires</h2>
+    <input id="fSplits" placeholder="Ex : 400 m, 800 m (vide = arrivée seulement)" autocomplete="off" aria-label="Temps intermédiaires">
+    <p class="help" id="splitHelp" style="margin-top:6px">Sépare les passages par des virgules. Pendant la course, chaque appui est noté au passage affiché sur le gros bouton.</p>
 
     <details class="fold" id="setDet">
       <summary><span class="t">Réglages</span><span class="d" id="setSum"></span></summary>
@@ -525,6 +555,7 @@
     <div id="doneBanner" class="hidden">✓ Tout le groupe est passé</div>
   </div>
   <div id="panel">
+    <div id="cpBar" class="hidden" role="group" aria-label="Passage en cours"></div>
     <div id="chipRow"><button id="tieBtn" disabled><b>+1</b>ensemble</button><div id="chips"></div></div>
     <button id="mainBtn" class="start">
       <span class="txt"><span class="lbl" id="mainLbl">Départ</span><span class="msub" id="mainSub">Lance le chrono et la vidéo</span></span>
@@ -547,8 +578,13 @@
     <video id="playback" controls playsinline></video>
     <p class="vidnote" id="videoInfo"></p>
 
-    <h2>Classement <span class="count" id="resLeft"></span></h2>
-    <button class="btn ink" id="pfOpen" style="width:100%;margin-bottom:12px"><svg><use href="#i-cam"/></svg>Valider les arrivées avec les photos</button>
+    <button class="btn ink" id="pfOpen" style="width:100%;margin:6px 0 4px"><svg><use href="#i-cam"/></svg>Valider les arrivées avec les photos</button>
+    <div id="splitSum" class="hidden">
+      <h2>Temps par élève</h2>
+      <div class="panel tblWrap" id="splitTbl"></div>
+    </div>
+    <div id="cpLists"></div>
+    <h2 class="cpH"><span id="finTag" class="cpTag fin hidden">Arrivée</span>Classement <span class="count" id="resLeft"></span></h2>
     <div class="panel" id="resList"></div>
     <p class="help">Choisis l'élève dans le menu de chaque arrivée : il disparaît des autres menus. Touche une photo pour l'agrandir, « revoir » pour la vidéo. Plusieurs élèves arrivés ensemble : « + 2e élève sur cette photo ».</p>
 
@@ -569,6 +605,7 @@
   <div class="pimg" id="pfImgBox"><img id="pfImg" alt="Photo d'arrivée"><span id="pfNone">Pas de photo pour cette arrivée</span>
     <button id="pfClose" aria-label="Fermer">×</button><span id="pfHint">Touche la photo pour zoomer</span></div>
   <div class="pside">
+    <div id="pfCp" class="hidden"><span class="cpTag" id="pfCpTag"></span></div>
     <div class="phead"><span class="bib" id="pfNum">1</span><div><b id="pfTime"></b><div class="help" id="pfGap" style="margin:2px 0 0"></div></div></div>
     <div class="slots" id="pfSlots"></div>
     <button class="tieAdd" id="pfTie">+ Ajouter un élève (ex aequo)</button>
@@ -647,6 +684,19 @@
     const stamp = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"_"+pad(d.getHours())+"h"+pad(d.getMinutes());
     return ["course", stamp, safeName(S.meta.title), safeName(S.meta.cls)].filter(Boolean).join("_");
   }
+  // ---------- points de passage : temps intermédiaires puis arrivée ----------
+  // S.meta.cps = noms des passages intermédiaires ; S.splits[k] = appuis au passage k ; S.arrivals = arrivée
+  const nCP = () => (S.meta && Array.isArray(S.meta.cps)) ? S.meta.cps.length : 0;
+  const listOf = k => k < nCP() ? (S.splits[k] || (S.splits[k] = [])) : S.arrivals;
+  const cpName = k => k < nCP() ? S.meta.cps[k] : "Arrivée";
+  const allEntries = () => (S.splits || []).flat().concat(S.arrivals || []);
+  const parseCps = v => (v || "").split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).slice(0, 8);
+  // temps d'un élève à un passage (null s'il n'y est pas)
+  function splitOf(runnerId, k){
+    if (!runnerId) return null;
+    const a = listOf(k).find(x => x.runnerId === runnerId);
+    return a ? a.t : null;
+  }
   const runnerById = id => S.runners.find(r => r.id === id) || null;
   const runnerLabel = r => r ? (r.bib ? r.bib + " " : "") + r.name : "";
   const nameOf = (a, i) => { const r = runnerById(a.runnerId); return r ? r.name : (a.freeName || ""); };
@@ -654,6 +704,7 @@
   // ---------- préparation ----------
   const saved = store.get("cc_setup", {});
   if (saved.title) $("fTitle").value = saved.title;
+  if (saved.splits) $("fSplits").value = saved.splits;
   // classes enregistrées : { id, name, items:[{ line, g }] }, g = 0 si l'élève n'est dans aucun groupe
   S.classes = store.get("cc_classes", null);
   if (!S.classes) {
@@ -686,7 +737,7 @@
   function qualityHint(){ $("qualityHint").textContent = QUALITY[S.opts.quality].label; }
   qualityHint();
   function saveSetup(){
-    store.set("cc_setup", { title:$("fTitle").value, classId:S.classId, run:S.opts.run,
+    store.set("cc_setup", { title:$("fTitle").value, splits:$("fSplits").value, classId:S.classId, run:S.opts.run,
       cam:S.opts.cam, hand:S.opts.hand, quality:S.opts.quality, burn:$("fBurn").checked, audio:$("fAudio").checked, beep:$("fBeep").checked });
   }
   const saveClasses = () => store.set("cc_classes", S.classes);
@@ -753,7 +804,7 @@
     runCards($("runCards"), c, v, val => { S.opts.run = val; saveSetup(); renderSetup(); });
     renderHero();
   }
-  ["fTitle","fBurn","fAudio","fBeep"].forEach(id => $(id).addEventListener("change", () => { saveSetup(); renderSettingsSum(); }));
+  ["fTitle","fSplits","fBurn","fAudio","fBeep"].forEach(id => $(id).addEventListener("change", () => { saveSetup(); renderSettingsSum(); }));
   // épreuves courantes en un toucher
   const EVENTS = ["800 m", "1000 m", "1200 m", "2 × 500 m", "3 × 500 m", "2 × 800 m"];
   function renderQuick(){
@@ -1065,7 +1116,7 @@
     }
     S.runners = runningRunners();
     const cc = curClass();
-    S.meta = { title:$("fTitle").value.trim(), cls:cc ? cc.name : "", group:runLabel(), date:Date.now() };
+    S.meta = { title:$("fTitle").value.trim(), cls:cc ? cc.name : "", group:runLabel(), date:Date.now(), cps:parseCps($("fSplits").value) };
     S.burn = $("fBurn").checked; S.beep = $("fBeep").checked;
     $("race").classList.toggle("left", S.opts.hand === "left");
     resetRace();
@@ -1076,7 +1127,8 @@
   };
 
   function resetRace(){
-    S.arrivals = []; S.running = false; S.finished = false; S.chunks = []; S.videoSaved = false; S.doneShown = false;
+    S.arrivals = []; S.splits = (S.meta.cps || []).map(() => []); S.cur = 0; S.log = [];
+    S.running = false; S.finished = false; S.chunks = []; S.videoSaved = false; S.doneShown = false;
     $("doneBanner").classList.add("hidden");
     freePhotos();
     S.chronoStartPerf = 0; S.recStartPerf = 0;
@@ -1153,7 +1205,7 @@
     if (v.cancelVideoFrameCallback && S.drawId) { try { v.cancelVideoFrameCallback(S.drawId); } catch(e){} }
     cancelAnimationFrame(S.drawId); S.drawId = 0;
   }
-  const lastTime = () => S.arrivals.length ? S.arrivals[S.arrivals.length-1].t : 0;
+  const lastTime = () => allEntries().reduce((m, a) => Math.max(m, a.t), 0);
 
   // ---------- enregistrement ----------
   function startRecording(){
@@ -1218,18 +1270,24 @@
     S.chronoStartPerf = performance.now();
     S.running = true;
     $("clock").classList.remove("idle");
-    $("mainBtn").className = "finish"; $("mainLbl").textContent = "Arrivée";
     $("recState").className = "on"; $("recState").textContent = "REC";
     feedback(880, 0.35, [80, 60, 80]);
     renderRaceUI(); tick();
   }
   function addArrival(){
     const t = performance.now() - S.chronoStartPerf;
-    const a = { t, runnerId:null };
-    S.arrivals.push(a);
-    const n = S.arrivals.length;
+    const k = S.cur, L = listOf(k);
+    const a = { t, runnerId:null, k };
+    L.push(a); S.log.push(a);
+    const n = L.length;
     snapPhoto(a);
-    S.flashNum = n; S.flashTime = t; S.flashUntil = performance.now() + 2000;
+    S.flashNum = (nCP() ? cpName(k) + "  " : "") + n; S.flashTime = t; S.flashUntil = performance.now() + 2000;
+    // tout le groupe est passé à ce point intermédiaire : on passe au suivant
+    const N = S.runners.length;
+    if (k < nCP() && N && n === N) {
+      S.cur = k + 1;
+      setTimeout(() => toast("Tous passés au " + cpName(k) + " · maintenant : " + cpName(S.cur)), 50);
+    }
     const f = $("flash"); f.style.opacity = .3; setTimeout(() => f.style.opacity = 0, 80);
     feedback(1320, 0.12, 50);
     renderRaceUI();
@@ -1269,13 +1327,13 @@
     try { const keys = await idb.keys(); await idb.del(keys.filter(k => raceOfPid(k) === raceId)); } catch(e){}
   }
   async function loadPhotos(){
-    const pids = [...new Set(S.arrivals.map(a => a.pid).filter(Boolean))];
+    const pids = [...new Set(allEntries().map(a => a.pid).filter(Boolean))];
     for (const pid of pids) {
       try {
         const rec = await idb.get(pid);
-        if (!rec || !rec.blob) { S.arrivals.forEach(a => { if (a.pid === pid) a.photoMissing = true; }); continue; }
+        if (!rec || !rec.blob) { allEntries().forEach(a => { if (a.pid === pid) a.photoMissing = true; }); continue; }
         const url = URL.createObjectURL(rec.blob); S.photos.push(url);
-        S.arrivals.forEach(a => { if (a.pid === pid) a.photo = url; });
+        allEntries().forEach(a => { if (a.pid === pid) a.photo = url; });
       } catch(e){}
     }
     refreshResults();
@@ -1301,10 +1359,10 @@
       a.pid = S.meta.date + "_" + Math.round(a.t) + "_" + Math.random().toString(36).slice(2, 6);
       c.toBlob(b => {
         if (!b) return;
-        if (S.arrivals.includes(a)) idb.put({ id:a.pid, blob:b }).catch(() => {});
+        if (allEntries().includes(a)) idb.put({ id:a.pid, blob:b }).catch(() => {});
         const url = URL.createObjectURL(b); S.photos.push(url);
         a.photo = url;
-        S.arrivals.forEach(x => { if (x.pid === a.pid && !x.photo) x.photo = url; });
+        allEntries().forEach(x => { if (x.pid === a.pid && !x.photo) x.photo = url; });
         if (S.finished) refreshResults();
       }, "image/jpeg", 0.85);
     } catch(e){}
@@ -1365,11 +1423,13 @@
   });
 
   holdButton($("undoBtn"), () => {
-    if (!S.arrivals.length) return;
-    const n = S.arrivals.length, a = S.arrivals.pop();
-    if (a.pid && !S.arrivals.some(x => x.pid === a.pid)) idb.del([a.pid]).catch(() => {});
+    if (!S.log.length) return;
+    const a = S.log.pop(), k = a.k || 0, L = listOf(k), n = L.indexOf(a) + 1;
+    if (n) L.splice(n - 1, 1);
+    S.cur = k;
+    if (a.pid && !allEntries().some(x => x.pid === a.pid)) idb.del([a.pid]).catch(() => {});
     feedback(330, 0.25, [40, 40, 40]);
-    toast("Arrivée n°" + n + " supprimée (" + fmt(a.t) + ")");
+    toast((nCP() ? cpName(k) + " : passage" : "Arrivée") + " n°" + n + " supprimé" + (nCP() ? "" : "e") + " (" + fmt(a.t) + ")");
     renderRaceUI();
   });
   holdButton($("endBtn"), () => {
@@ -1385,7 +1445,7 @@
     try { if (S.recorder && S.recorder.state !== "inactive") S.recorder.stop(); } catch(e){}
     setTimeout(() => { stopCompositor(); closeCamera(); }, 400);
     saveToHistory(); renderResults(); show("results");
-    if (S.arrivals.length) openViewer(0);
+    if (allEntries().length) openViewer(0);
   }
   function closeCamera(){
     stopCompositor();
@@ -1397,20 +1457,42 @@
   // ---------- interface de course ----------
   // plusieurs élèves sur la même arrivée : même temps, même photo, même place
   $("tieBtn").addEventListener("click", () => {
-    if (!S.running || !S.arrivals.length) return;
-    const last = S.arrivals[S.arrivals.length - 1];
-    S.arrivals.push({ t:last.t, runnerId:null, tie:true, pid:last.pid, photo:last.photo });
-    const grp = arrivalGroups(), g = grp[grp.length - 1];
+    if (!S.running || !S.log.length) return;
+    const last = S.log[S.log.length - 1], k = last.k || 0, L = listOf(k);
+    const a = { t:last.t, runnerId:null, tie:true, pid:last.pid, photo:last.photo, k };
+    L.splice(L.indexOf(last) + 1, 0, a); S.log.push(a);
+    const g = arrivalGroups(L).find(x => x.includes(L.indexOf(a)));
     feedback(1100, 0.1, 40);
-    toast("Arrivée n°" + (g[0] + 1) + " : " + g.length + " élèves ensemble");
+    toast((nCP() ? cpName(k) + ", passage" : "Arrivée") + " n°" + (g[0] + 1) + " : " + g.length + " élèves ensemble");
     renderRaceUI();
   });
   let doneTimer = 0;
+  function renderCpBar(){
+    const bar = $("cpBar"), K = nCP(), N = S.runners.length;
+    bar.classList.toggle("hidden", !K);
+    if (!K) return;
+    bar.innerHTML = "";
+    for (let k = 0; k <= K; k++) {
+      const b = document.createElement("button"), c = listOf(k).length;
+      b.setAttribute("aria-pressed", String(k === S.cur));
+      b.classList.toggle("full", !!N && c >= N);
+      b.innerHTML = esc(cpName(k)) + "<small>" + c + (N ? "/" + N : "") + "</small>";
+      b.onclick = () => { S.cur = k; renderRaceUI(); };
+      bar.appendChild(b);
+    }
+  }
   function renderRaceUI(){
-    const n = S.arrivals.length, N = S.runners.length;
-    $("undoBtn").disabled = !n;
-    $("tieBtn").disabled = !S.running || !n;
-    $("countInfo").textContent = N ? n + " / " + N + " passés" : n + (n > 1 ? " passés" : " passé");
+    const L = listOf(S.cur), n = L.length, N = S.runners.length;
+    renderCpBar();
+    if (S.running) {
+      const fin = S.cur >= nCP();
+      $("mainBtn").className = fin ? "finish" : "split";
+      $("mainLbl").textContent = cpName(S.cur);
+    }
+    $("undoBtn").disabled = !S.log.length;
+    $("tieBtn").disabled = !S.running || !S.log.length;
+    $("countInfo").textContent = (nCP() ? cpName(S.cur) + " : " : "") + (N ? n + " / " + N + " passés" : n + (n > 1 ? " passés" : " passé"));
+    $("doneBanner").textContent = "✓ Tout le groupe est passé" + (nCP() ? (S.cur < nCP() ? " au " : " à l'") + cpName(S.cur).replace(/^Arrivée$/, "arrivée") : "");
     $("prog").classList.toggle("hidden", !N);
     $("progN").textContent = n; $("progT").textContent = "/ " + N;
     $("prog").classList.toggle("done", !!N && n === N);
@@ -1422,31 +1504,31 @@
       clearTimeout(doneTimer); doneTimer = setTimeout(() => $("doneBanner").classList.add("hidden"), 2500);
     }
     if (n < N) { S.doneShown = false; $("doneBanner").classList.add("hidden"); }
-    $("lastList").innerHTML = S.arrivals.slice(-3).map((a, i, arr) => {
-      const idx = n - arr.length + i, nm = nameOf(a);
-      return '<div class="tag"><span class="bib">' + rankOf(idx) + (a.tie ? "=" : "") + '</span><span class="num">' + fmt(a.t) + "</span>" + (nm ? "<span>" + esc(nm) + "</span>" : "") + "</div>";
+    $("lastList").innerHTML = S.log.slice(-3).map(a => {
+      const k = a.k || 0, LL = listOf(k), idx = LL.indexOf(a), nm = nameOf(a);
+      return '<div class="tag">' + (nCP() ? '<span class="cp">' + esc(cpName(k)) + "</span>" : "") + '<span class="bib">' + rankOf(idx, LL) + (a.tie ? "=" : "") + '</span><span class="num">' + fmt(a.t) + "</span>" + (nm ? "<span>" + esc(nm) + "</span>" : "") + "</div>";
     }).join("");
     if (S.running) {
       const left = N - n;
       $("mainSub").textContent = !n ? "Touche à chaque passage" :
-        (N ? (left > 0 ? "Encore " + left + " · " : (left === 0 ? "Tout le monde est passé · " : "")) : "") + "dernier " + fmt(S.arrivals[n-1].t);
+        (N ? (left > 0 ? "Encore " + left + " · " : (left === 0 ? "Tout le monde est passé · " : "")) : "") + "dernier " + fmt(L[n-1].t);
       $("lastBib").classList.toggle("hidden", !n);
-      $("lastNum").textContent = n ? rankOf(n - 1) : "";
+      $("lastNum").textContent = n ? rankOf(n - 1, L) : "";
     }
     const chips = $("chips"); chips.innerHTML = "";
     if (!S.runners.length) { chips.innerHTML = '<span class="note">Pas de liste : tu nommeras les élèves à la fin.</span>'; return; }
-    const used = new Set(S.arrivals.map(a => a.runnerId).filter(Boolean));
-    const pending = S.arrivals.findIndex(a => !a.runnerId);
+    const used = new Set(L.map(a => a.runnerId).filter(Boolean));
+    const pending = L.findIndex(a => !a.runnerId);
     const note = document.createElement("span"); note.className = "note";
-    note.innerHTML = pending >= 0 ? 'Qui est le <span class="bib ask">' + rankOf(pending) + "</span> ?" : (S.running ? "Touche le nom après l'arrivée" : "Élèves");
+    note.innerHTML = pending >= 0 ? 'Qui est le <span class="bib ask">' + rankOf(pending, L) + "</span> ?" : (S.running ? "Touche le nom après le passage, ou nomme à la fin avec les photos" : "Élèves");
     chips.appendChild(note);
     S.runners.filter(r => !used.has(r.id)).forEach(r => {
       const b = document.createElement("button"); b.className = "chip";
       b.innerHTML = (r.bib ? "<small>" + esc(r.bib) + "</small>" : "") + esc(r.name);
       b.onclick = () => {
-        const i = S.arrivals.findIndex(a => !a.runnerId);
-        if (i < 0) { toast("Touche Arrivée d'abord, puis le nom"); return; }
-        S.arrivals[i].runnerId = r.id; renderRaceUI();
+        const i = L.findIndex(a => !a.runnerId);
+        if (i < 0) { toast("Touche le gros bouton d'abord, puis le nom"); return; }
+        L[i].runnerId = r.id; renderRaceUI();
       };
       chips.appendChild(b);
     });
@@ -1454,17 +1536,18 @@
 
   // ---------- résultats ----------
   // arrivées groupées : un groupe = un passage (plusieurs élèves si arrivés ensemble)
-  function arrivalGroups(){
+  function arrivalGroups(L = S.arrivals){
     const g = [];
-    S.arrivals.forEach((a, i) => { if (a.tie && g.length) g[g.length-1].push(i); else g.push([i]); });
+    L.forEach((a, i) => { if (a.tie && g.length) g[g.length-1].push(i); else g.push([i]); });
     return g;
   }
-  function rankOf(i){ let j = i; while (j > 0 && S.arrivals[j].tie) j--; return j + 1; }
+  function rankOf(i, L = S.arrivals){ let j = i; while (j > 0 && L[j].tie) j--; return j + 1; }
   function rows(){
     const first = S.arrivals.length ? S.arrivals[0].t : 0;
     return S.arrivals.map((a, i) => {
       const r = runnerById(a.runnerId);
-      return { rank:rankOf(i), bib:r ? r.bib : "", name:nameOf(a), group:r && r.group ? r.group : "", t:a.t, gap:a.t - first, runnerId:a.runnerId };
+      return { rank:rankOf(i), bib:r ? r.bib : "", name:nameOf(a), group:r && r.group ? r.group : "", t:a.t, gap:a.t - first, runnerId:a.runnerId,
+        splits:(S.meta.cps || []).map((c, k) => splitOf(a.runnerId, k)) };
     });
   }
   function nonFinishers(){
@@ -1478,16 +1561,16 @@
   }
 
   // menu déroulant d'une arrivée : seuls les élèves pas encore choisis
-  function slotEl(i){
-    const a = S.arrivals[i], d = document.createElement("div"); d.className = "slot";
+  function slotEl(i, L = S.arrivals){
+    const a = L[i], d = document.createElement("div"); d.className = "slot";
     if (!S.runners.length) {
       const inp = document.createElement("input"); inp.placeholder = "Nom de l'élève"; inp.value = a.freeName || "";
       inp.onchange = () => { a.freeName = inp.value.trim(); saveToHistory(); };
       d.appendChild(inp);
     } else {
-      const used = new Set(S.arrivals.filter((x, j) => j !== i).map(x => x.runnerId).filter(Boolean));
+      const used = new Set(L.filter((x, j) => j !== i).map(x => x.runnerId).filter(Boolean));
       const sel = document.createElement("select");
-      sel.setAttribute("aria-label", "Élève de l'arrivée n°" + rankOf(i));
+      sel.setAttribute("aria-label", "Élève du passage n°" + rankOf(i, L));
       const avail = S.runners.filter(r => r.id === a.runnerId || !used.has(r.id));
       let h = '<option value="">' + (avail.length ? "Choisir l'élève…" : "Tous les élèves sont placés") + "</option>";
       const multi = new Set(S.runners.map(r => r.group)).size > 1;
@@ -1505,14 +1588,14 @@
     if (a.tie) {
       const x = document.createElement("button"); x.className = "x"; x.textContent = "×";
       x.setAttribute("aria-label", "Retirer cet élève de l'arrivée");
-      x.onclick = () => { S.arrivals.splice(i, 1); changed(); };
+      x.onclick = () => { L.splice(i, 1); changed(); };
       d.appendChild(x);
     }
     return d;
   }
-  function addTie(grp){
-    const last = grp[grp.length-1], head = S.arrivals[grp[0]];
-    S.arrivals.splice(last + 1, 0, { t:head.t, runnerId:null, tie:true, photo:head.photo, pid:head.pid });
+  function addTie(grp, L = S.arrivals){
+    const last = grp[grp.length-1], head = L[grp[0]];
+    L.splice(last + 1, 0, { t:head.t, runnerId:null, tie:true, photo:head.photo, pid:head.pid, k:head.k });
     changed();
   }
 
@@ -1532,25 +1615,75 @@
       [R.length > 1 ? fmt(R[R.length-1].t - R[0].t) : "–", "du 1er au dernier"]
     ];
     $("resFacts").innerHTML = facts.map(([v, l]) => "<div><b>" + v + "</b><span>" + l + "</span></div>").join("");
-    const todo = S.arrivals.filter(a => !(a.runnerId || a.freeName)).length;
-    $("resLeft").textContent = S.arrivals.length ? (todo ? todo + " à nommer" : "tout est nommé") : "";
-    $("pfOpen").classList.toggle("hidden", !S.arrivals.length);
+    const todoOf = L => L.filter(a => !(a.runnerId || a.freeName)).length;
+    const leftTxt = L => L.length ? (todoOf(L) ? todoOf(L) + " à nommer" : "tout est nommé") : "";
+    $("resLeft").textContent = leftTxt(S.arrivals);
+    const allTodo = todoOf(allEntries());
+    $("pfOpen").classList.toggle("hidden", !allEntries().length);
+    $("pfOpen").lastChild.textContent = allTodo ? "Valider avec les photos (" + allTodo + " à nommer)" : "Revoir les photos";
+    $("finTag").classList.toggle("hidden", !nCP());
+
+    // temps intermédiaires : tableau par élève + liste de chaque passage
+    $("splitSum").classList.toggle("hidden", !nCP());
+    if (nCP()) renderSplitTable();
+    const cpBox = $("cpLists"); cpBox.innerHTML = "";
+    for (let k = 0; k < nCP(); k++) {
+      const L = listOf(k), sec = document.createElement("div");
+      sec.innerHTML = '<h2 class="cpH"><span class="cpTag">' + esc(cpName(k)) + '</span>Passages <span class="count">' + leftTxt(L) + '</span></h2><div class="panel"></div>';
+      const box = sec.querySelector(".panel");
+      cardsInto(box, L, k);
+      if (!L.length) box.innerHTML = '<div class="dnfrow">Aucun passage enregistré</div>';
+      cpBox.appendChild(sec);
+    }
 
     const list = $("resList"); list.innerHTML = "";
-    const first = S.arrivals.length ? S.arrivals[0].t : 0;
-    arrivalGroups().forEach((grp, gi) => {
-      const head = S.arrivals[grp[0]], gap = head.t - first;
+    cardsInto(list, S.arrivals, nCP());
+    resultsTail(list);
+  }
+  // une carte par passage (photo + élève(s)) pour la liste L du point k
+  function cardsInto(list, L, k){
+    const first = L.length ? L[0].t : 0;
+    arrivalGroups(L).forEach(grp => {
+      const head = L[grp[0]], gap = head.t - first;
       const el = document.createElement("div"); el.className = "card";
       el.innerHTML = '<button class="ph" aria-label="Agrandir la photo">' + (head.photo ? '<img alt="" src="' + head.photo + '">' : (head.pid ? (head.photoMissing ? "Photo introuvable" : "…") : (S.finishedFromHistory ? "Photo non enregistrée (course avant la version 10)" : "Pas de photo"))) + "</button>" +
         '<div><div class="ctop"><span class="bib">' + (grp[0] + 1) + "</span><b>" + fmt(head.t) + "</b>" +
         (gap > 0 ? "<small>" + fmtGap(gap) + "</small>" : "") + (S.videoURL ? '<button class="play">revoir</button>' : "") +
         '</div><div class="slots"></div><button class="tieAdd">+ ' + (grp.length + 1) + 'e élève sur cette photo (ex aequo)</button></div>';
-      const slots = el.querySelector(".slots"); grp.forEach(i => slots.appendChild(slotEl(i)));
-      el.querySelector(".ph").onclick = () => openViewer(gi);
-      el.querySelector(".tieAdd").onclick = () => addTie(grp);
+      const slots = el.querySelector(".slots"); grp.forEach(i => slots.appendChild(slotEl(i, L)));
+      el.querySelector(".ph").onclick = () => openViewer(pages().findIndex(pg => pg.k === k && pg.grp[0] === grp[0]));
+      el.querySelector(".tieAdd").onclick = () => addTie(grp, L);
       const pl = el.querySelector(".play"); if (pl) pl.onclick = () => seekTo(head.t);
       list.appendChild(el);
     });
+  }
+  // élèves : classés à l'arrivée d'abord, puis les autres (avec leurs temps intermédiaires)
+  function splitRows(){
+    const out = [], seen = new Set();
+    S.arrivals.forEach((a, i) => {
+      const r = runnerById(a.runnerId), nm = nameOf(a);
+      if (a.runnerId) seen.add(a.runnerId);
+      out.push({ rank:rankOf(i), name:r ? runnerLabel(r) : (nm || "Non nommé"), named:!!(r || nm),
+        times:(S.meta.cps || []).map((c, k) => splitOf(a.runnerId, k)), t:a.t });
+    });
+    S.runners.filter(r => !seen.has(r.id)).forEach(r => {
+      const times = (S.meta.cps || []).map((c, k) => splitOf(r.id, k));
+      out.push({ rank:"", name:runnerLabel(r), named:true, times, t:null });
+    });
+    return out;
+  }
+  function renderSplitTable(){
+    const cps = S.meta.cps || [];
+    const cell = (t, prev) => t == null ? '<td class="t miss">–</td>' : '<td class="t">' + fmt(t) + (prev && t > prev ? "<small>+" + fmt(t - prev) + "</small>" : "") + "</td>";
+    let h = "<table class=\"splitTbl\"><thead><tr><th></th><th>Élève</th>" + cps.map(c => "<th>" + esc(c) + "</th>").join("") + "<th>Arrivée</th></tr></thead><tbody>";
+    splitRows().forEach(r => {
+      let prev = 0, tds = "";
+      r.times.concat([r.t]).forEach(t => { tds += cell(t, prev); if (t != null) prev = t; else prev = null; });
+      h += "<tr><td class=\"pl\">" + r.rank + "</td><td" + (r.named ? "" : ' class="miss"') + ">" + esc(r.name) + "</td>" + tds + "</tr>";
+    });
+    $("splitTbl").innerHTML = h + "</tbody></table>";
+  }
+  function resultsTail(list){
     nonFinishers().forEach(r => {
       const el = document.createElement("div"); el.className = "dnfrow";
       el.innerHTML = '<span class="bib muted">–</span><span>' + esc(runnerLabel(r)) + "</span><small style=\"margin-left:auto\">non classé</small>";
@@ -1562,42 +1695,53 @@
   }
 
   // ---------- visionneuse : photo d'arrivée + menu déroulant ----------
+  // pages de la visionneuse : chaque passage intermédiaire dans l'ordre, puis l'arrivée
+  function pages(){
+    const out = [];
+    for (let k = 0; k <= nCP(); k++) arrivalGroups(listOf(k)).forEach(grp => out.push({ k, grp }));
+    return out;
+  }
   let pfIdx = 0;
   function openViewer(gi){
-    const G = arrivalGroups(); if (!G.length) return;
-    if (gi == null) { gi = G.findIndex(g => g.some(i => !(S.arrivals[i].runnerId || S.arrivals[i].freeName))); if (gi < 0) gi = 0; }
+    const P = pages(); if (!P.length) return;
+    if (gi == null || gi < 0) { gi = P.findIndex(pg => pg.grp.some(i => { const a = listOf(pg.k)[i]; return !(a.runnerId || a.freeName); })); if (gi < 0) gi = 0; }
     pfIdx = gi; pfSlot = -1; $("pfFilter").value = ""; $("pf").classList.remove("hidden"); renderViewer();
     history.pushState({pf:1}, "");
   }
   function closeViewer(){ $("pf").classList.add("hidden"); $("pfImg").classList.remove("zoom"); renderResults(); }
   function renderViewer(){
-    const G = arrivalGroups(); if (!G.length) { closeViewer(); return; }
-    pfIdx = Math.max(0, Math.min(pfIdx, G.length - 1));
-    const grp = G[pfIdx], head = S.arrivals[grp[0]], first = S.arrivals[0].t;
+    const P = pages(); if (!P.length) { closeViewer(); return; }
+    pfIdx = Math.max(0, Math.min(pfIdx, P.length - 1));
+    const { k, grp } = P[pfIdx], L = listOf(k), head = L[grp[0]], first = L[0].t;
+    const nG = arrivalGroups(L).length, gi = arrivalGroups(L).findIndex(g => g[0] === grp[0]);
     const img = $("pfImg");
     if (head.photo) { if (img.getAttribute("src") !== head.photo) { img.src = head.photo; img.classList.remove("zoom"); } img.classList.remove("hidden"); }
     else { img.removeAttribute("src"); img.classList.add("hidden"); }
     $("pfNone").classList.toggle("hidden", !!head.photo);
-    $("pfNone").textContent = head.pid ? (head.photoMissing ? "Photo introuvable sur cet appareil" : "Chargement…") : (S.finishedFromHistory ? "Photo non enregistrée : course faite avant la version 10" : "Pas de photo pour cette arrivée");
+    $("pfNone").textContent = head.pid ? (head.photoMissing ? "Photo introuvable sur cet appareil" : "Chargement…") : (S.finishedFromHistory ? "Photo non enregistrée : course faite avant la version 10" : "Pas de photo pour ce passage");
     $("pfHint").classList.toggle("hidden", !head.photo);
+    $("pfCp").classList.toggle("hidden", !nCP());
+    $("pfCpTag").textContent = cpName(k);
+    $("pfCpTag").classList.toggle("fin", k >= nCP());
     $("pfNum").textContent = grp[0] + 1;
     $("pfTime").textContent = fmt(head.t);
-    $("pfGap").textContent = (head.t - first > 0 ? fmtGap(head.t - first) + " sur le 1er · " : "") + "passage " + (pfIdx + 1) + " / " + G.length;
-    renderPick(grp);
+    $("pfGap").textContent = (head.t - first > 0 ? fmtGap(head.t - first) + " sur le 1er · " : "") + "passage " + (gi + 1) + " / " + nG;
+    renderPick(grp, L);
     $("pfTie").textContent = "+ " + (grp.length + 1) + "e élève sur cette photo (ex aequo)";
     $("pfPrev").disabled = pfIdx === 0;
-    $("pfNext").innerHTML = pfIdx === G.length - 1 ? "Terminé" : 'Suivant<svg><use href="#i-next"/></svg>';
+    const nextK = pfIdx < P.length - 1 ? P[pfIdx + 1].k : null;
+    $("pfNext").innerHTML = nextK == null ? "Terminé" : (nextK !== k ? esc(cpName(nextK)) : "Suivant") + '<svg><use href="#i-next"/></svg>';
   }
-  // l'arrivée affichée reçoit l'élève touché dans la liste
+  // le passage affiché reçoit l'élève touché dans la liste
   let pfSlot = -1, pfTimer = null;
-  function renderPick(grp){
+  function renderPick(grp, L){
     const slots = $("pfSlots"); slots.innerHTML = "";
     $("pfPickBox").classList.toggle("hidden", !S.runners.length);
-    if (!S.runners.length) { grp.forEach(i => slots.appendChild(slotEl(i))); return; }
-    if (!grp.includes(pfSlot)) pfSlot = grp.find(i => !S.arrivals[i].runnerId);
+    if (!S.runners.length) { grp.forEach(i => slots.appendChild(slotEl(i, L))); return; }
+    if (!grp.includes(pfSlot)) pfSlot = grp.find(i => !L[i].runnerId);
     if (pfSlot == null) pfSlot = -1;
     grp.forEach(i => {
-      const a = S.arrivals[i], r = runnerById(a.runnerId);
+      const a = L[i], r = runnerById(a.runnerId);
       const b = document.createElement("div");
       b.className = "vslot" + (r ? "" : " empty") + (i === pfSlot ? " on" : "");
       b.setAttribute("role", "button"); b.tabIndex = 0;
@@ -1608,18 +1752,18 @@
         x.setAttribute("aria-label", r ? "Retirer cet élève" : "Retirer cette ligne");
         x.onclick = e => {
           e.stopPropagation();
-          if (r) { a.runnerId = null; pfSlot = i; } else S.arrivals.splice(i, 1);
+          if (r) { a.runnerId = null; pfSlot = i; } else L.splice(i, 1);
           changed();
         };
         b.appendChild(x);
       }
       slots.appendChild(b);
     });
-    // élèves restants (ceux déjà placés disparaissent)
-    const used = new Set(S.arrivals.map(x => x.runnerId).filter(Boolean));
-    const q = $("pfFilter").value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    // élèves pas encore placés à ce passage
+    const used = new Set(L.map(x => x.runnerId).filter(Boolean));
+    const q = $("pfFilter").value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
     const left = S.runners.filter(r => !used.has(r.id));
-    const avail = left.filter(r => !q || runnerLabel(r).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(q));
+    const avail = left.filter(r => !q || runnerLabel(r).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(q));
     $("pfPickTitle").textContent = left.length ? "Élèves restants (" + left.length + ")" : "Tous les élèves sont placés";
     const box = $("pfPick"); box.innerHTML = "";
     const multi = new Set(S.runners.map(r => r.group)).size > 1;
@@ -1637,18 +1781,19 @@
     if (!avail.length && left.length) box.innerHTML = '<div class="none">Aucun élève ne correspond</div>';
   }
   function pick(id){
-    const G = arrivalGroups(), grp = G[pfIdx]; if (!grp) return;
-    let i = grp.includes(pfSlot) ? pfSlot : grp.find(j => !S.arrivals[j].runnerId);
+    const P = pages(), pg = P[pfIdx]; if (!pg) return;
+    const { grp } = pg, L = listOf(pg.k);
+    let i = grp.includes(pfSlot) ? pfSlot : grp.find(j => !L[j].runnerId);
     if (i == null) i = grp[grp.length - 1];
-    S.arrivals[i].runnerId = id;
+    L[i].runnerId = id;
     $("pfFilter").value = "";
-    pfSlot = grp.find(j => !S.arrivals[j].runnerId);
+    pfSlot = grp.find(j => !L[j].runnerId);
     if (pfSlot == null) pfSlot = -1;
     changed();
     feedback(990, 0.06, 20);
-    // arrivée complète : on passe à la suivante
+    // passage complet : on passe au suivant
     clearTimeout(pfTimer);
-    if (pfSlot < 0 && pfIdx < G.length - 1) {
+    if (pfSlot < 0 && pfIdx < P.length - 1) {
       const at = pfIdx;
       pfTimer = setTimeout(() => { if (pfIdx === at && !$("pf").classList.contains("hidden")) { pfIdx++; pfSlot = -1; renderViewer(); } }, 450);
     }
@@ -1657,8 +1802,8 @@
   $("pfOpen").onclick = () => openViewer();
   $("pfClose").onclick = () => history.back();
   $("pfPrev").onclick = () => { clearTimeout(pfTimer); pfIdx--; pfSlot = -1; renderViewer(); };
-  $("pfNext").onclick = () => { clearTimeout(pfTimer); if (pfIdx >= arrivalGroups().length - 1) history.back(); else { pfIdx++; pfSlot = -1; renderViewer(); } };
-  $("pfTie").onclick = () => { const g = arrivalGroups()[pfIdx]; addTie(g); pfSlot = g[g.length - 1] + 1; renderViewer(); };
+  $("pfNext").onclick = () => { clearTimeout(pfTimer); if (pfIdx >= pages().length - 1) history.back(); else { pfIdx++; pfSlot = -1; renderViewer(); } };
+  $("pfTie").onclick = () => { const pg = pages()[pfIdx]; addTie(pg.grp, listOf(pg.k)); pfSlot = pg.grp[pg.grp.length - 1] + 1; renderViewer(); };
   $("pfImg").onclick = e => {
     const img = e.currentTarget, r = img.getBoundingClientRect();
     if (!img.classList.contains("zoom")) img.style.transformOrigin = ((e.clientX - r.left) / r.width * 100) + "% " + ((e.clientY - r.top) / r.height * 100) + "%";
@@ -1709,6 +1854,7 @@
         body += "<tr" + (rank <= 3 ? ' class="pod"' : "") + ">" +
           (k === 0 ? '<td class="pl" rowspan="' + grp.length + '">' + rank + (grp.length > 1 ? "<small>ex aequo</small>" : "") + "</td>" : "") +
           "<td>" + (nm ? esc(nm) : '<i>non nommé</i>') + (r && r.bib ? ' <small>n° ' + esc(r.bib) + "</small>" : "") + "</td>" +
+          (S.meta.cps || []).map((c, ck) => { const st = splitOf(x.runnerId, ck); return '<td class="s">' + (st == null ? "–" : fmt(st)) + "</td>"; }).join("") +
           (k === 0 ? '<td class="t" rowspan="' + grp.length + '">' + fmt(a.t) + '</td><td class="g" rowspan="' + grp.length + '">' + (gap > 0 ? fmtGap(gap) : "") + "</td>" +
             '<td class="ph" rowspan="' + grp.length + '">' + (ph ? '<img src="' + ph + '" alt="">' : "") + "</td>" : "") + "</tr>";
       });
@@ -1721,7 +1867,7 @@
       ".w{max-width:860px;margin:0 auto;padding:28px 20px 40px}h1{font-size:34px;margin:0;line-height:1.05}.m{color:#55626E;margin-top:6px}" +
       ".f{display:flex;gap:28px;border-top:2px solid #14212B;margin:18px 0 22px;padding-top:10px}.f b{display:block;font-size:26px}.f span{color:#55626E;font-size:14px}" +
       "table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden}th{text-align:left;font-size:13px;color:#55626E;font-weight:600;padding:10px 12px;border-bottom:2px solid #DCE0D9}" +
-      "td{padding:10px 12px;border-bottom:1px solid #DCE0D9;vertical-align:middle}td small{color:#8A949D;font-size:13px}" +
+      "td{padding:10px 12px;border-bottom:1px solid #DCE0D9;vertical-align:middle}.s{font-variant-numeric:tabular-nums;white-space:nowrap;color:#1F5FA8;font-weight:600}td small{color:#8A949D;font-size:13px}" +
       ".pl{font-size:24px;font-weight:800;width:56px;text-align:center}.pl small{display:block;font-size:11px;font-weight:600}.pod .pl{color:#B83226}" +
       ".t{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.g{color:#55626E;white-space:nowrap}" +
       ".ph{width:150px}.ph img{width:150px;border-radius:8px;display:block}h2{font-size:20px;margin:26px 0 8px}.nf{background:#fff;border-radius:14px;padding:6px 16px}.nf div{padding:8px 0;border-bottom:1px solid #DCE0D9}.nf div:last-child{border:0}" +
@@ -1730,8 +1876,8 @@
       "@media (max-width:560px){.ph{width:96px}.ph img{width:96px}.g{display:none}th.g{display:none}}" +
       '</style></head><body><div class="w"><h1>' + esc(title) + '</h1><div class="m">' + meta.map(esc).join(" · ") + "</div>" +
       '<div class="f">' + facts.map(([v, l]) => "<div><b>" + v + "</b><span>" + l + "</span></div>").join("") + "</div>" +
-      (body ? '<table><thead><tr><th>Place</th><th>Élève</th><th>Temps</th><th class="g">Écart</th><th>Photo</th></tr></thead><tbody>' + body + "</tbody></table>" : "<p>Aucune arrivée.</p>") +
-      (nf.length ? "<h2>Non classés</h2><div class=\"nf\">" + nf.map(r => "<div>" + esc(runnerLabel(r)) + "</div>").join("") + "</div>" : "") +
+      (body ? '<table><thead><tr><th>Place</th><th>Élève</th>' + (S.meta.cps || []).map(c => '<th class="s">' + esc(c) + "</th>").join("") + '<th>Temps</th><th class="g">Écart</th><th>Photo</th></tr></thead><tbody>' + body + "</tbody></table>" : "<p>Aucune arrivée.</p>") +
+      (nf.length ? "<h2>Non classés</h2><div class=\"nf\">" + nf.map(r => "<div>" + esc(runnerLabel(r)) + (S.meta.cps || []).map((c, ck) => { const st = splitOf(r.id, ck); return st == null ? "" : ' <small>· ' + esc(c) + " " + fmt(st) + "</small>"; }).join("") + "</div>").join("") + "</div>" : "") +
       '<button class="p" onclick="print()">Imprimer ou enregistrer en PDF</button>' +
       '<div class="foot">Chrono EPS · temps pris à la main sur la vidéo de l\'arrivée</div></div></body></html>';
   }
@@ -1741,8 +1887,10 @@
   function prepReport(){ S.report = null; clearTimeout(repTimer); repTimer = setTimeout(async () => { try { S.report = await reportFile(); } catch(e){} }, 400); }
   function plainText(){
     const head = [S.meta.title, S.meta.cls, S.meta.group, new Date(S.meta.date).toLocaleDateString("fr-FR")].filter(Boolean).join(" – ");
-    const body = rows().map(r => r.rank + ". " + (r.name ? (r.bib ? r.bib + " " : "") + r.name : "Coureur " + r.rank) + "   " + fmt(r.t));
-    const nf = nonFinishers().map(r => "–  " + runnerLabel(r) + "   non classé");
+    const cps = S.meta.cps || [];
+    const sp = times => { const p = cps.map((c, k) => times[k] == null ? "" : c + " " + fmt(times[k])).filter(Boolean); return p.length ? "   (" + p.join(" · ") + ")" : ""; };
+    const body = rows().map(r => r.rank + ". " + (r.name ? (r.bib ? r.bib + " " : "") + r.name : "Coureur " + r.rank) + "   " + fmt(r.t) + sp(r.splits));
+    const nf = nonFinishers().map(r => "–  " + runnerLabel(r) + "   non classé" + sp(cps.map((c, k) => splitOf(r.id, k))));
     return [head, ""].concat(body, nf).join("\n");
   }
   function download(blob, name){
@@ -1771,22 +1919,22 @@
   const loadImg = url => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
   async function photoFiles(){
     const files = [], head0 = [S.meta.title, S.meta.cls, S.meta.group, new Date(S.meta.date).toLocaleDateString("fr-FR")].filter(Boolean).join(" · ");
-    for (const grp of arrivalGroups()) {
-      const a = S.arrivals[grp[0]]; if (!a.photo) continue;
+    for (const { k, grp } of pages()) {
+      const L = listOf(k), a = L[grp[0]]; if (!a.photo) continue;
       const img = await loadImg(a.photo), w = img.naturalWidth, h = img.naturalHeight;
       const fs = Math.round(Math.min(w, h) * 0.06), band = Math.round(fs * 2.6);
       const c = document.createElement("canvas"); c.width = w; c.height = h + band;
       const ctx = c.getContext("2d");
       ctx.fillStyle = "#14212B"; ctx.fillRect(0, 0, w, band);
       ctx.drawImage(img, 0, band, w, h);
-      const names = grp.map(i => { const x = S.arrivals[i], r = runnerById(x.runnerId); return r ? runnerLabel(r) : (x.freeName || ""); }).filter(Boolean);
+      const names = grp.map(i => { const x = L[i], r = runnerById(x.runnerId); return r ? runnerLabel(r) : (x.freeName || ""); }).filter(Boolean);
       ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
       ctx.font = "700 " + fs + 'px "Barlow",sans-serif';
-      ctx.fillText((grp[0] + 1) + ". " + (names.join(" + ") || "Non nommé") + "   " + fmt(a.t), fs * 0.5, band * 0.36, w - fs);
+      ctx.fillText((nCP() ? cpName(k) + " · " : "") + (grp[0] + 1) + ". " + (names.join(" + ") || "Non nommé") + "   " + fmt(a.t), fs * 0.5, band * 0.36, w - fs);
       ctx.font = "500 " + Math.round(fs * 0.6) + 'px "Barlow",sans-serif'; ctx.fillStyle = "#ffffffb0";
       ctx.fillText(head0, fs * 0.5, band * 0.78, w - fs);
       const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));
-      if (blob) files.push(new File([blob], baseFileName() + "_arrivee-" + pad(grp[0] + 1) + ".jpg", { type:"image/jpeg" }));
+      if (blob) files.push(new File([blob], baseFileName() + "_" + (safeName(cpName(k)) || "passage").toLowerCase() + "-" + pad(grp[0] + 1) + ".jpg", { type:"image/jpeg" }));
     }
     return files;
   }
@@ -1853,8 +2001,9 @@
   // ---------- historique ----------
   function saveToHistory(){
     const hist = store.get("cc_history", []);
-    const arrivals = S.arrivals.map(a => { const o = Object.assign({}, a); delete o.photo; return o; });
-    const entry = { id:S.meta.date, meta:S.meta, runners:S.runners, arrivals, chronoStartPerf:S.chronoStartPerf, recStartPerf:S.recStartPerf };
+    const strip = a => { const o = Object.assign({}, a); delete o.photo; return o; };
+    const arrivals = S.arrivals.map(strip), splits = (S.splits || []).map(L => L.map(strip));
+    const entry = { id:S.meta.date, meta:S.meta, runners:S.runners, arrivals, splits, chronoStartPerf:S.chronoStartPerf, recStartPerf:S.recStartPerf };
     const i = hist.findIndex(h => h.id === entry.id);
     if (i >= 0) hist[i] = entry; else hist.unshift(entry);
     store.set("cc_history", hist.slice(0, 60));
@@ -1878,7 +2027,7 @@
         '<button class="iconbtn" data-a="open" aria-label="Ouvrir"><svg><use href="#i-next"/></svg></button>';
       const open = () => {
         freePhotos();
-        Object.assign(S, { meta:h.meta, runners:h.runners, arrivals:h.arrivals, chronoStartPerf:h.chronoStartPerf,
+        Object.assign(S, { meta:h.meta, runners:h.runners, arrivals:h.arrivals, splits:h.splits || [], log:[], chronoStartPerf:h.chronoStartPerf,
           recStartPerf:h.recStartPerf, videoBlob:null, videoURL:null, videoSaved:true, finishedFromHistory:true });
         $("playback").removeAttribute("src");
         renderResults(); $("videoInfo").textContent = "La vidéo de cette course n'est pas conservée sur l'appareil.";
